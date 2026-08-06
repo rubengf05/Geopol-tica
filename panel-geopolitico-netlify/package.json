@@ -1,0 +1,16 @@
+{
+  "name": "panel-geopolitico-gdelt",
+  "private": true,
+  "type": "module",
+  "description": "Panel geopolítico (GDELT) con refresco vía Netlify Scheduled Functions + Netlify Blobs",
+  "scripts": {
+    "dev": "netlify dev",
+    "test": "node --test test/gdelt.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.38.0"
+  }
+}
