@@ -42,7 +42,8 @@
         <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
           Datos GDELT: <span id="serverUpdate" class="text-slate-300">—</span>
         </span>
-        <button id="refreshBtn" class="px-3 py-1 rounded-full text-xs">🔄 Refrescar ahora</button>
+        <button id="refreshBtn" class="px-3 py-1 rounded-full text-xs">🔄 Refrescar caché</button>
+        <button id="triggerFetchBtn" class="px-3 py-1 rounded-full text-xs">⚡ Cargar GDELT ahora</button>
       </div>
     </div>
   </div>
@@ -389,11 +390,41 @@ function scheduleNext(){
 }
 
 // ================= INIT =================
+// ================= TRIGGER MANUAL FETCH =================
+async function triggerFetch() {
+  const btn = document.getElementById("triggerFetchBtn");
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Cargando GDELT…";
+
+  try {
+    const res = await fetch("/api/trigger-fetch", { method: "POST" });
+    const result = await res.json();
+
+    if (result.ok) {
+      btn.textContent = "✅ Datos cargados";
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+        loadAll(); // recarga el panel automáticamente
+      }, 2000);
+    } else {
+      btn.textContent = "❌ Error";
+      btn.disabled = false;
+    }
+  } catch (e) {
+    btn.textContent = "❌ Error: " + e.message;
+    btn.disabled = false;
+  }
+}
+
+// ================= INIT =================
 document.getElementById("searchBox").addEventListener("input", renderCountryGrid);
 document.getElementById("regionFilter").addEventListener("change", renderCountryGrid);
 document.getElementById("riskFilter").addEventListener("change", renderCountryGrid);
 document.getElementById("sortBy").addEventListener("change", renderCountryGrid);
 document.getElementById("refreshBtn").addEventListener("click", () => loadAll());
+document.getElementById("triggerFetchBtn").addEventListener("click", triggerFetch);
 
 renderCountryGrid();
 loadAll();
