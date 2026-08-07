@@ -398,18 +398,44 @@ async function triggerFetch() {
   btn.textContent = "⏳ Cargando GDELT…";
 
   try {
-    const res = await fetch("/api/trigger-fetch", { method: "POST" });
-    const result = await res.json();
+    // La carga la hace una background function (sufijo -background):
+    // Netlify responde 202 de inmediato y sigue trabajando hasta 15 min
+    // por detrás. Por eso aquí no esperamos al resultado: disparamos y
+    // luego sondeamos /api/geopolitical-data hasta que aparezcan datos.
+    const res = await fetch("/api/trigger-fetch-background", { method: "POST" });
 
-    if (result.ok) {
+    if (res.status !== 202 && !res.ok) {
+      throw new Error("HTTP " + res.status);
+    }
+
+    btn.textContent = "⏳ Procesando en Netlify…";
+
+    // Sondeo: reintenta leer la caché durante ~5 min.
+    const maxAttempts = 30;
+    const intervalMs = 10000;
+    let loaded = false;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, intervalMs));
+      try {
+        const check = await fetch("/api/geopolitical-data", { cache: "no-store" });
+        const data = await check.json();
+        if (check.ok && !data.error && data.countries) {
+          loaded = true;
+          break;
+        }
+      } catch (_) { /* seguimos reintentando */ }
+    }
+
+    if (loaded) {
       btn.textContent = "✅ Datos cargados";
+      loadAll(); // recarga el panel automáticamente
       setTimeout(() => {
         btn.textContent = originalText;
         btn.disabled = false;
-        loadAll(); // recarga el panel automáticamente
       }, 2000);
     } else {
-      btn.textContent = "❌ Error";
+      btn.textContent = "⏳ Aún procesando… recarga en 1 min";
       btn.disabled = false;
     }
   } catch (e) {
