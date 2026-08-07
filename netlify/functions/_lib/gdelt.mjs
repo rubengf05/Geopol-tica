@@ -40,9 +40,13 @@ export function parseGdeltDate(s) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+// Timeout por llamada a GDELT: si una petición se cuelga, falla solo ese país
+// en vez de agotar el límite de 10 s de la función de Netlify.
+const FETCH_TIMEOUT_MS = 6000;
+
 export async function fetchTimelineTone(query, days) {
   const url = `${GDELT_BASE}?query=${encodeURIComponent(query)}&mode=timelinetone&timespan=${days}d&format=json`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const j = await res.json();
   const series = j.timeline?.[0]?.data || [];
@@ -51,7 +55,7 @@ export async function fetchTimelineTone(query, days) {
 
 export async function fetchArticles(query, max) {
   const url = `${GDELT_BASE}?query=${encodeURIComponent(query)}&mode=artlist&maxrecords=${max}&sort=DateDesc&format=json`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const j = await res.json();
   return (j.articles || []).map((a) => ({
@@ -76,37 +80,52 @@ export function mergeSeries(oldSeries, newPoints, maxDays = MAX_DAYS_KEPT) {
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Orquesta las 3 llamadas GDELT solicitadas y devuelve el payload completo
+// Cuántas llamadas a GDELT lanzamos en paralelo por lote. Las funciones de
+// Netlify tienen un límite de 10 s de ejecución: en serie con pausas no da
+// tiempo; en lotes de 5 con una pausa corta entre lotes sí, sin saturar GDELT.
+const BATCH_SIZE = 5;
+
+// Orquesta las llamadas GDELT solicitadas y devuelve el payload completo
 // que se guarda en Netlify Blobs. `sleepFn` es inyectable para poder testear
-// sin esperar de verdad entre llamadas.
-export async function buildUpdatedPayload(existing, { sleepFn = defaultSleep, delayMs = 800 } = {}) {
+// sin esperar de verdad entre lotes.
+export async function buildUpdatedPayload(existing, { sleepFn = defaultSleep, delayMs = 400 } = {}) {
   const countries = { ...(existing?.countries || {}) };
   const errors = [];
 
-  for (const c of COUNTRIES) {
-    try {
-      const points = await fetchTimelineTone(c.query, 7);
-      countries[c.code] = mergeSeries(countries[c.code], points);
-    } catch (e) {
-      errors.push(`${c.code}: ${e.message}`);
-    }
-    await sleepFn(delayMs); // no saturar la API pública de GDELT
+  for (let i = 0; i < COUNTRIES.length; i += BATCH_SIZE) {
+    const batch = COUNTRIES.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (c) => {
+        try {
+          const points = await fetchTimelineTone(c.query, 7);
+          countries[c.code] = mergeSeries(countries[c.code], points);
+        } catch (e) {
+          errors.push(`${c.code}: ${e.message}`);
+        }
+      })
+    );
+    if (i + BATCH_SIZE < COUNTRIES.length) await sleepFn(delayMs); // no saturar la API pública de GDELT
   }
 
   let iranExtended14d = existing?.iranExtended14d || [];
-  try {
-    const points14 = await fetchTimelineTone('"Iran"', 14);
-    iranExtended14d = mergeSeries(iranExtended14d, points14);
-  } catch (e) {
-    errors.push(`IRN-14d: ${e.message}`);
-  }
-
   let iranArticles = existing?.iranArticles || [];
-  try {
-    iranArticles = await fetchArticles('"Iran"', 12);
-  } catch (e) {
-    errors.push(`IRN-articles: ${e.message}`);
-  }
+  await Promise.all([
+    (async () => {
+      try {
+        const points14 = await fetchTimelineTone('"Iran"', 14);
+        iranExtended14d = mergeSeries(iranExtended14d, points14);
+      } catch (e) {
+        errors.push(`IRN-14d: ${e.message}`);
+      }
+    })(),
+    (async () => {
+      try {
+        iranArticles = await fetchArticles('"Iran"', 12);
+      } catch (e) {
+        errors.push(`IRN-articles: ${e.message}`);
+      }
+    })(),
+  ]);
 
   return {
     updatedAt: new Date().toISOString(),

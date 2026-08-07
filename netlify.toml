@@ -4,4 +4,3 @@
 
 [functions]
   node_bundler = "esbuild"
-  schedule = "@minutely"
