@@ -1,6 +1,6 @@
 [build]
-  publish = "public"
-  functions = "netlify/functions"
+  publish = "panel-geopolitico-netlify"
+  functions = "panel-geopolitico-netlify/netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
