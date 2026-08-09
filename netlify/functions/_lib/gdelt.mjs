@@ -14,10 +14,12 @@
 
 export const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
 
-// Cuántos días de histórico por país conservamos como máximo en el blob.
-// GDELT solo devuelve "los últimos N días" en cada llamada; el merge de
-// abajo evita perder lo ya guardado cuando la ventana se desplaza.
-export const MAX_DAYS_KEPT = 180;
+// Cuántos puntos de histórico por serie conservamos como máximo en el blob.
+// OJO: GDELT devuelve resolución HORARIA para timespans cortos (168 puntos
+// por semana), así que esto se mide en puntos, no en días: 1000 puntos son
+// ~41 días de datos horarios. El merge de abajo evita perder lo ya guardado
+// cuando la ventana de GDELT se desplaza.
+export const MAX_POINTS_KEPT = 1000;
 
 // OJO con las queries: GDELT rechaza frases entrecomilladas de UNA sola
 // palabra ("Iran" -> «The specified phrase is too short»). Palabras sueltas
@@ -90,13 +92,13 @@ export async function fetchArticles(query, max, timeoutMs = 8000) {
 }
 
 // Fusiona la serie histórica guardada con los puntos nuevos, dedupe por
-// fecha (el nuevo gana si coincide), ordena y recorta a MAX_DAYS_KEPT.
-export function mergeSeries(oldSeries, newPoints, maxDays = MAX_DAYS_KEPT) {
+// fecha (el nuevo gana si coincide), ordena y recorta a MAX_POINTS_KEPT.
+export function mergeSeries(oldSeries, newPoints, maxPoints = MAX_POINTS_KEPT) {
   const map = new Map((oldSeries || []).map((p) => [p.date, p]));
   for (const p of newPoints || []) {
     if (p.date) map.set(p.date, p);
   }
-  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-maxDays);
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date)).slice(-maxPoints);
 }
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

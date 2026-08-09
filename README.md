@@ -77,8 +77,9 @@ por presupuesto de tiempo y orden de rotación por antigüedad.
 
 - **Frecuencia de la rotación**: `schedule` en `fetch-gdelt-scheduled.mjs`
   (`*/5 * * * *`) y nº de tareas por ejecución (`stalestTaskIds(existing, 2)`).
-- **Cuánto histórico se conserva por país**: `MAX_DAYS_KEPT` en
-  `_lib/gdelt.mjs` (por defecto 180 días).
+- **Cuánto histórico se conserva por serie**: `MAX_POINTS_KEPT` en
+  `_lib/gdelt.mjs` (por defecto 1000 puntos; GDELT devuelve resolución
+  horaria, así que son ~41 días).
 - **Países/consultas**: array `COUNTRIES` en `_lib/gdelt.mjs`. Ojo: palabras
   sueltas sin comillas; comillas solo para frases de varias palabras.
 - **Frecuencia de refresco del panel** (solo relee la caché): `REFRESH_MS`
