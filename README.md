@@ -31,10 +31,15 @@ cada tarea solo actualiza su trozo:
 - **`fetch-gdelt-scheduled.mjs`** — cada 5 min ejecuta las 2 tareas más
   antiguas (rotación por sello `taskUpdatedAt`). El panel completo se
   refresca en ~40 min de forma continua.
-- **`trigger-fetch.mjs`** — `GET /api/trigger-fetch` lista las tareas;
-  `POST /api/trigger-fetch?target=<id>` ejecuta una. El botón
-  "⚡ Cargar GDELT ahora" del panel las recorre una a una con ~4 s de pausa
-  (~1-2 min en total) e informa del progreso.
+- **`trigger-fetch.mjs`** — `GET /api/trigger-fetch` devuelve los
+  descriptores de las tareas; `POST /api/trigger-fetch?target=<id>` ejecuta
+  una en el servidor (solo viable cuando GDELT responde rápido).
+- **`ingest-gdelt.mjs`** — `POST /api/ingest?target=<id>`. GDELT a veces
+  tarda **más de 10 s** en responder (por encima del límite de las funciones
+  síncronas de Netlify), así que el botón "⚡ Cargar GDELT ahora" descarga
+  las 15 consultas **desde el navegador** (sin ese límite, con ~5,5 s de
+  pausa entre ellas) y las envía aquí; la función valida todo (fechas,
+  rangos de tono, URLs, tamaños) antes de fusionar y guardar.
 - **`get-geopolitical-data.mjs`** — `GET /api/geopolitical-data`: lee el
   blob y lo devuelve. Es lo único que llama el navegador para pintar.
 - **`_lib/gdelt.mjs`** — lógica compartida y testeable (tareas, merge del

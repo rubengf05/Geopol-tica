@@ -22,7 +22,7 @@ export default async () => {
   }
 
   const ids = stalestTaskIds(existing, 2);
-  const payload = await updateTasks(existing, ids, { delayMs: 4500, budgetMs: 5000, timeoutMs: 2500 });
+  const payload = await updateTasks(existing, ids, { delayMs: 4000, budgetMs: 5000, timeoutMs: 2500 });
   await store.setJSON("geopolitical-data", payload);
 
   const summary =

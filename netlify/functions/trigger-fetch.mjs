@@ -23,7 +23,9 @@ export default async (req) => {
   const target = new URL(req.url).searchParams.get("target");
 
   if (!target) {
-    return json({ tasks: TASKS.map((t) => t.id) });
+    // Descriptores completos: el panel los usa para construir las URLs de
+    // GDELT y descargar los datos desde el navegador (ver /api/ingest).
+    return json({ tasks: TASKS });
   }
   if (!TASKS.some((t) => t.id === target)) {
     return json({ ok: false, error: `Tarea desconocida: ${target}` }, 400);

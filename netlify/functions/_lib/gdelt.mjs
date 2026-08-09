@@ -113,6 +113,79 @@ export function stalestTaskIds(existing, n) {
     .map((t) => t.id);
 }
 
+// ---------------------------------------------------------------------------
+// INGESTA DESDE EL NAVEGADOR
+// GDELT a veces tarda >10 s en responder (más que el límite de las funciones
+// de Netlify), así que la carga manual la hace el NAVEGADOR: descarga el JSON
+// de GDELT (sin límite de tiempo) y lo envía a /api/ingest. Como el cliente
+// no es de fiar, aquí se valida todo antes de fusionarlo con el histórico.
+
+const clampNum = (v, min, max) => (Number.isFinite(v) && v >= min && v <= max ? v : null);
+const cleanStr = (v, maxLen) => (typeof v === "string" ? v.slice(0, maxLen) : null);
+
+// points crudos de GDELT: [{ date: "20260802T000000Z", value: -3.2 }, ...]
+export function sanitizeTimelinePoints(raw) {
+  if (!Array.isArray(raw)) throw new Error("points debe ser un array");
+  return raw
+    .slice(0, 500)
+    .map((p) => ({ date: parseGdeltDate(cleanStr(p?.date, 20)), tone: clampNum(p?.value, -100, 100) }))
+    .filter((p) => p.date && p.tone !== null);
+}
+
+// articles crudos de GDELT: [{ title, url, domain, seendate, tone, language }, ...]
+export function sanitizeArticles(raw, max) {
+  if (!Array.isArray(raw)) throw new Error("articles debe ser un array");
+  return raw
+    .slice(0, max)
+    .map((a) => {
+      const url = cleanStr(a?.url, 1000);
+      const tone = a?.tone === undefined || a?.tone === "" ? null : parseFloat(a?.tone);
+      return {
+        title: cleanStr(a?.title, 300),
+        url: url && /^https?:\/\//i.test(url) ? url : null,
+        domain: cleanStr(a?.domain, 200),
+        date: parseGdeltDate(cleanStr(a?.seendate, 20)),
+        tone: clampNum(tone, -100, 100),
+        language: cleanStr(a?.language, 50),
+      };
+    })
+    .filter((a) => a.title && a.url);
+}
+
+// Valida el body enviado por el navegador para una tarea y lo fusiona con el
+// payload guardado. Lanza si el body no tiene sentido (tarea desconocida,
+// estructura inválida o cero datos válidos tras sanear).
+export function ingestTaskData(existing, taskId, body) {
+  const task = TASKS.find((t) => t.id === taskId);
+  if (!task) throw new Error(`Tarea desconocida: ${taskId}`);
+
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    meta: COUNTRIES.map(({ code, name, flag, region }) => ({ code, name, flag, region })),
+    countries: { ...(existing?.countries || {}) },
+    iranExtended14d: existing?.iranExtended14d || [],
+    iranArticles: existing?.iranArticles || [],
+    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
+    lastErrors: [],
+  };
+
+  if (task.kind === "articles") {
+    const articles = sanitizeArticles(body?.articles, task.max);
+    if (articles.length === 0) throw new Error("sin artículos válidos");
+    payload.iranArticles = articles;
+  } else {
+    const points = sanitizeTimelinePoints(body?.points);
+    if (points.length === 0) throw new Error("sin puntos válidos");
+    if (task.kind === "iran14d") {
+      payload.iranExtended14d = mergeSeries(payload.iranExtended14d, points);
+    } else {
+      payload.countries[task.id] = mergeSeries(payload.countries[task.id], points);
+    }
+  }
+  payload.taskUpdatedAt[task.id] = new Date().toISOString();
+  return payload;
+}
+
 // Ejecuta las tareas indicadas (en orden) y devuelve el payload completo a
 // guardar en Netlify Blobs. Nunca pierde lo ya guardado: cada tarea solo
 // actualiza su trozo. `budgetMs` corta antes de empezar una tarea nueva si

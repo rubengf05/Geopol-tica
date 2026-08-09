@@ -108,7 +108,7 @@
   <!-- FOOTER -->
   <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1">
     <p><strong class="text-slate-400">Fuente de datos:</strong> GDELT Project 2.0 DOC API — endpoints <code class="text-slate-400">mode=timelinetone</code> y <code class="text-slate-400">mode=artlist</code>. AvgTone se calcula como la media del sentimiento léxico de todos los artículos que mencionan al país en el período consultado. Rango teórico [-100, +100]; la ventana operativa práctica está entre -10 y +10.</p>
-    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación (2 consultas cada 5 min — GDELT limita a 1 petición cada 5 s) y guarda el resultado en <em>Netlify Blobs</em>. Este panel solo llama a <code class="text-slate-400">/api/geopolitical-data</code>, que lee esa caché — así ningún visitante golpea GDELT directamente y todos ven el mismo dato. "🔄 Refrescar caché" relee la caché; "⚡ Cargar GDELT ahora" fuerza las 15 consultas una a una (~1-2 min).</p>
+    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación (2 consultas cada 5 min — GDELT limita a 1 petición cada 5 s) y guarda el resultado en <em>Netlify Blobs</em>. El panel pinta leyendo <code class="text-slate-400">/api/geopolitical-data</code> (la caché compartida — todos ven el mismo dato). "🔄 Refrescar caché" relee la caché; "⚡ Cargar GDELT ahora" descarga las 15 consultas desde tu navegador una a una y las guarda vía <code class="text-slate-400">/api/ingest</code> (~2 min; más si GDELT va lento).</p>
     <p><strong class="text-slate-400">Metodología del "riesgo":</strong> el orden y filtros "Top N más críticos" se calculan sobre el AvgTone medio de los últimos 7 días (más negativo = mayor riesgo). El delta semanal compara el último día vs. la media de los 6 días previos.</p>
   </footer>
 </main>
@@ -386,17 +386,39 @@ function scheduleNext(){
 }
 
 // ================= TRIGGER MANUAL FETCH =================
-// GDELT exige ~1 petición cada 5 s (devuelve 429 si no) y las funciones de
-// Netlify tienen un límite de 10 s, así que la carga manual va tarea a
-// tarea: una llamada a /api/trigger-fetch?target=<id> por consulta GDELT,
-// con ~4 s de pausa entre ellas. El panel se va rellenando en vivo.
+// GDELT a veces tarda >10 s en responder — más que el límite de las
+// funciones de Netlify — así que la carga manual la hace ESTE navegador:
+// descarga el JSON de GDELT tarea a tarea (respetando su límite de ~1
+// petición cada 5 s) y se lo envía a /api/ingest, que valida y guarda.
+// El panel se va rellenando en vivo según llegan los datos.
+const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function runTask(id) {
-  const res = await fetch(`/api/trigger-fetch?target=${encodeURIComponent(id)}`, { method: "POST" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const result = await res.json();
-  return result.ok;
+function gdeltUrl(task) {
+  const q = encodeURIComponent(task.query);
+  if (task.kind === "articles") {
+    return `${GDELT_BASE}?query=${q}&mode=artlist&maxrecords=${task.max}&sort=DateDesc&format=json`;
+  }
+  return `${GDELT_BASE}?query=${q}&mode=timelinetone&timespan=${task.days}d&format=json`;
+}
+
+async function runTask(task) {
+  // 1) El navegador descarga de GDELT (hasta 45 s de margen)
+  const res = await fetch(gdeltUrl(task), { signal: AbortSignal.timeout(45000) });
+  if (!res.ok) throw new Error(`GDELT HTTP ${res.status}`);
+  const j = await res.json(); // si GDELT devuelve texto de error, esto lanza
+  const body = task.kind === "articles"
+    ? { articles: j.articles || [] }
+    : { points: j.timeline?.[0]?.data || [] };
+
+  // 2) La función valida y fusiona con el histórico compartido
+  const ing = await fetch(`/api/ingest?target=${encodeURIComponent(task.id)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!ing.ok) throw new Error(`ingest HTTP ${ing.status}`);
+  return (await ing.json()).ok;
 }
 
 async function triggerFetch() {
@@ -417,7 +439,7 @@ async function triggerFetch() {
         if (!(await runTask(tasks[i]))) failed.push(tasks[i]);
       } catch { failed.push(tasks[i]); }
       loadAll(); // refresca el panel según van llegando los datos
-      if (i < tasks.length - 1) await sleep(4000);
+      if (i < tasks.length - 1) await sleep(5500);
     }
 
     // Reintento único de las que fallaron (GDELT a veces da un 429 puntual)
@@ -426,7 +448,7 @@ async function triggerFetch() {
       failed = [];
       for (let i = 0; i < retry.length; i++) {
         btn.textContent = `⏳ Reintentando… ${i + 1}/${retry.length}`;
-        await sleep(6000);
+        await sleep(8000);
         try {
           if (!(await runTask(retry[i]))) failed.push(retry[i]);
         } catch { failed.push(retry[i]); }

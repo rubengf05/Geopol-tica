@@ -12,6 +12,9 @@ import {
   mergeSeries,
   updateTasks,
   stalestTaskIds,
+  ingestTaskData,
+  sanitizeTimelinePoints,
+  sanitizeArticles,
   COUNTRIES,
   TASKS,
 } from "../netlify/functions/_lib/gdelt.mjs";
@@ -189,6 +192,55 @@ test("updateTasks: el presupuesto de tiempo corta antes de empezar tareas nuevas
   } finally {
     restore();
   }
+});
+
+test("sanitizeTimelinePoints: filtra basura y acota tonos", () => {
+  const clean = sanitizeTimelinePoints([
+    { date: "20260801T000000Z", value: -3.2 },        // válido
+    { date: "20260802T000000Z", value: "no-numero" }, // tono inválido
+    { date: "basura", value: -1 },                     // fecha inválida
+    { date: "20260803T000000Z", value: 999 },          // fuera de rango
+    null,                                              // entrada corrupta
+  ]);
+  assert.equal(clean.length, 1);
+  assert.equal(clean[0].date, "2026-08-01T00:00:00.000Z");
+  assert.equal(clean[0].tone, -3.2);
+  assert.throws(() => sanitizeTimelinePoints("no-array"));
+});
+
+test("sanitizeArticles: exige título y URL http(s), acota campos", () => {
+  const clean = sanitizeArticles(
+    [
+      { title: "Ok", url: "https://x.com/a", domain: "x.com", seendate: "20260805T120000Z", tone: "-2.5", language: "English" },
+      { title: "Sin url válida", url: "javascript:alert(1)", domain: "x.com" },
+      { url: "https://x.com/b" }, // sin título
+    ],
+    12
+  );
+  assert.equal(clean.length, 1);
+  assert.equal(clean[0].tone, -2.5);
+  assert.equal(clean[0].date, "2026-08-05T12:00:00.000Z");
+});
+
+test("ingestTaskData: fusiona lo enviado por el navegador sin perder histórico", () => {
+  const existing = {
+    countries: { ISR: [{ date: "2026-07-20T00:00:00.000Z", tone: -5 }] },
+    iranArticles: [{ title: "viejo", url: "https://x.com/v" }],
+    taskUpdatedAt: {},
+  };
+  const payload = ingestTaskData(existing, "ISR", {
+    points: [{ date: "20260808T000000Z", value: -2.1 }],
+  });
+  assert.equal(payload.countries.ISR.length, 2); // histórico + nuevo
+  assert.ok(payload.taskUpdatedAt.ISR);
+  assert.equal(payload.iranArticles.length, 1); // el resto no se toca
+  assert.equal(payload.meta.length, COUNTRIES.length);
+});
+
+test("ingestTaskData: rechaza tarea desconocida y datos sin nada válido", () => {
+  assert.throws(() => ingestTaskData(null, "XXX", { points: [] }), /desconocida/);
+  assert.throws(() => ingestTaskData(null, "ISR", { points: [{ date: "basura", value: 1 }] }), /sin puntos/);
+  assert.throws(() => ingestTaskData(null, "IRNNEWS", { articles: [{ title: "x", url: "ftp://mal" }] }), /sin artículos/);
 });
 
 test("stalestTaskIds: primero las nunca ejecutadas, luego las más antiguas", () => {
