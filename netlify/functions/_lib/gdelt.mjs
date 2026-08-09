@@ -41,9 +41,18 @@ export const COUNTRIES = [
 ];
 
 // Cada tarea = exactamente UNA llamada a GDELT.
+// Calculamos los días desde el inicio del conflicto (febrero de 2026)
+const FEB_2026_START = new Date("2026-02-01T00:00:00Z");
+const DAYS_SINCE_WAR_START = Math.max(
+  14, 
+  Math.ceil((Date.now() - FEB_2026_START.getTime()) / (1000 * 60 * 60 * 24))
+);
+
+// Cada tarea = exactamente UNA llamada a GDELT.
 export const TASKS = [
   ...COUNTRIES.map((c) => ({ id: c.code, kind: "country", query: c.query, days: 7 })),
-  { id: "IRN14D", kind: "iran14d", query: "Iran", days: 14 },
+  // Ahora calcula los días automáticamente desde febrero de 2026
+  { id: "IRN14D", kind: "iran14d", query: "Iran", days: DAYS_SINCE_WAR_START },
   { id: "IRNNEWS", kind: "articles", query: "Iran", max: 12 },
 ];
 
