@@ -5,8 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Panel Geopolítico Global — Live (GDELT)</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: 'SF Mono','Fira Code','JetBrains Mono',ui-monospace,monospace; background:#070d1b; color:#dbe4f3; }
+  body { 
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+  background: #070d1b; 
+  color: #dbe4f3; 
+  }
   .card { background:#0d1525; border:1px solid #1e2d47; transition: all .15s ease; }
   .card:hover { border-color:#33507a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
   .kpi { background:#0d1525; border:1px solid #1e2d47; }
@@ -260,7 +267,7 @@ function iranChartSVG(series){
     const v = yMin + yStep*i;
     const gy = Y(v);
     grid += `<line x1="${marginL}" y1="${gy}" x2="${marginL+plotW}" y2="${gy}" stroke="#1e2d47" stroke-width="1"/>
-             <text x="${marginL-6}" y="${gy+3}" font-size="10" fill="#64748b" text-anchor="end" font-family="monospace">${v.toFixed(1)}</text>`;
+             <text x="${marginL-6}" y="${gy+3}" font-size="10" fill="#64748b" text-anchor="end" font-family="Inter, sans-serif" font-variant-numeric="tabular-nums">${v.toFixed(1)}</text>`;
   }
   if (yMin < 0 && yMax > 0) {
     const gy0 = Y(0);
