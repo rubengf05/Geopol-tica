@@ -432,14 +432,35 @@ async function triggerFetch() {
     if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
     const { tasks } = await listRes.json();
 
+    // Salta lo ya refrescado hace <15 min (por una pasada anterior o por la
+    // función programada): cada petición a GDELT cuenta contra su rate limit,
+    // mejor gastarlas solo en lo que falta.
+    let freshIds = new Set();
+    try {
+      const cur = await (await fetch(API_URL, { cache: "no-store" })).json();
+      const cutoff = Date.now() - 15 * 60 * 1000;
+      freshIds = new Set(
+        Object.entries(cur.taskUpdatedAt || {})
+          .filter(([, at]) => new Date(at).getTime() > cutoff)
+          .map(([id]) => id)
+      );
+    } catch { /* sin caché aún: se cargan todas */ }
+    const pending = tasks.filter((t) => !freshIds.has(t.id));
+
+    if (pending.length === 0) {
+      btn.textContent = "✅ Todo al día";
+      setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
+      return;
+    }
+
     let failed = [];
-    for (let i = 0; i < tasks.length; i++) {
-      btn.textContent = `⏳ Cargando GDELT… ${i + 1}/${tasks.length}`;
+    for (let i = 0; i < pending.length; i++) {
+      btn.textContent = `⏳ Cargando GDELT… ${i + 1}/${pending.length}`;
       try {
-        if (!(await runTask(tasks[i]))) failed.push(tasks[i]);
-      } catch { failed.push(tasks[i]); }
+        if (!(await runTask(pending[i]))) failed.push(pending[i]);
+      } catch { failed.push(pending[i]); }
       loadAll(); // refresca el panel según van llegando los datos
-      if (i < tasks.length - 1) await sleep(5500);
+      if (i < pending.length - 1) await sleep(7000);
     }
 
     // Reintento único de las que fallaron (GDELT a veces da un 429 puntual)
