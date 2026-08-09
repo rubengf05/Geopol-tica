@@ -11,7 +11,7 @@
 // pide todo de golpe).
 
 import { getStore } from "@netlify/blobs";
-import { TASKS, updateTasks } from "./_lib/gdelt.mjs";
+import { TASKS, fetchTaskResults, applyTaskResults } from "./_lib/gdelt.mjs";
 
 export default async (req) => {
   const json = (body, status = 200) =>
@@ -31,8 +31,16 @@ export default async (req) => {
     return json({ ok: false, error: `Tarea desconocida: ${target}` }, 400);
   }
 
-  const store = getStore("gdelt");
+  // Una sola llamada GDELT por invocación: presupuesto y timeout holgados.
+  // Anti-carrera: descargar primero (lo lento), leer el blob justo antes de
+  // escribir, y no escribir nada si la descarga falló.
+  const { results, errors } = await fetchTaskResults([target], { budgetMs: 9000, timeoutMs: 7000 });
 
+  if (Object.keys(results).length === 0) {
+    return json({ ok: false, target, errors });
+  }
+
+  const store = getStore("gdelt");
   let existing = null;
   try {
     existing = await store.get("geopolitical-data", { type: "json" });
@@ -40,16 +48,10 @@ export default async (req) => {
     existing = null;
   }
 
-  // Una sola llamada GDELT por invocación: presupuesto y timeout holgados.
-  const payload = await updateTasks(existing, [target], { budgetMs: 9000, timeoutMs: 7000 });
+  const payload = applyTaskResults(existing, results, errors);
   await store.setJSON("geopolitical-data", payload);
 
-  return json({
-    ok: payload.lastErrors.length === 0,
-    target,
-    updatedAt: payload.updatedAt,
-    errors: payload.lastErrors,
-  });
+  return json({ ok: true, target, updatedAt: payload.updatedAt, errors });
 };
 
 export const config = {

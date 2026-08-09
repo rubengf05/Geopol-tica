@@ -188,31 +188,23 @@ export function ingestTaskData(existing, taskId, body) {
   return payload;
 }
 
-// Ejecuta las tareas indicadas (en orden) y devuelve el payload completo a
-// guardar en Netlify Blobs. Nunca pierde lo ya guardado: cada tarea solo
-// actualiza su trozo. `budgetMs` corta antes de empezar una tarea nueva si
-// ya no queda tiempo (límite de 10 s de las funciones de Netlify); la tarea
-// omitida queda como "stale" y la recoge la siguiente ejecución programada.
-export async function updateTasks(
-  existing,
+// FASE 1: descarga de GDELT las tareas indicadas (en orden) y devuelve
+// { results, errors } sin tocar ningún payload. `budgetMs` corta antes de
+// empezar una tarea nueva si ya no queda tiempo (límite de 10 s de las
+// funciones de Netlify); la tarea omitida queda "stale" y la recoge la
+// siguiente ejecución programada.
+export async function fetchTaskResults(
   taskIds,
   { sleepFn = defaultSleep, delayMs = 800, budgetMs = 5000, timeoutMs = 3000 } = {}
 ) {
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    meta: COUNTRIES.map(({ code, name, flag, region }) => ({ code, name, flag, region })),
-    countries: { ...(existing?.countries || {}) },
-    iranExtended14d: existing?.iranExtended14d || [],
-    iranArticles: existing?.iranArticles || [],
-    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
-    lastErrors: [],
-  };
+  const results = {}; // id -> puntos (timeline) o artículos
+  const errors = [];
 
   const started = Date.now();
   let first = true;
   for (const id of taskIds) {
     if (!first && Date.now() - started >= budgetMs) {
-      payload.lastErrors.push(`${id}: omitida (sin tiempo en esta ejecución)`);
+      errors.push(`${id}: omitida (sin tiempo en esta ejecución)`);
       continue;
     }
     if (!first) await sleepFn(delayMs); // no saturar la API pública de GDELT
@@ -220,25 +212,58 @@ export async function updateTasks(
 
     const task = TASKS.find((t) => t.id === id);
     if (!task) {
-      payload.lastErrors.push(`${id}: tarea desconocida`);
+      errors.push(`${id}: tarea desconocida`);
       continue;
     }
     try {
-      if (task.kind === "articles") {
-        payload.iranArticles = await fetchArticles(task.query, task.max, timeoutMs);
-      } else {
-        const points = await fetchTimelineTone(task.query, task.days, timeoutMs);
-        if (task.kind === "iran14d") {
-          payload.iranExtended14d = mergeSeries(payload.iranExtended14d, points);
-        } else {
-          payload.countries[task.id] = mergeSeries(payload.countries[task.id], points);
-        }
-      }
-      payload.taskUpdatedAt[task.id] = new Date().toISOString();
+      results[id] =
+        task.kind === "articles"
+          ? await fetchArticles(task.query, task.max, timeoutMs)
+          : await fetchTimelineTone(task.query, task.days, timeoutMs);
     } catch (e) {
-      payload.lastErrors.push(`${id}: ${e.message}`);
+      errors.push(`${id}: ${e.message}`);
     }
   }
 
+  return { results, errors };
+}
+
+// FASE 2: aplica los resultados descargados sobre el estado guardado y
+// devuelve el payload completo a escribir. Se llama con una lectura FRESCA
+// del blob, hecha justo antes de escribir: así la ventana en la que otra
+// escritura concurrente (p.ej. /api/ingest desde un navegador) puede
+// perderse es de milisegundos, no de los segundos que tardan los fetch.
+export function applyTaskResults(existing, results, errors = []) {
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    meta: COUNTRIES.map(({ code, name, flag, region }) => ({ code, name, flag, region })),
+    countries: { ...(existing?.countries || {}) },
+    iranExtended14d: existing?.iranExtended14d || [],
+    iranArticles: existing?.iranArticles || [],
+    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
+    lastErrors: [...errors],
+  };
+
+  for (const [id, data] of Object.entries(results || {})) {
+    const task = TASKS.find((t) => t.id === id);
+    if (!task) continue;
+    if (task.kind === "articles") {
+      payload.iranArticles = data;
+    } else if (task.kind === "iran14d") {
+      payload.iranExtended14d = mergeSeries(payload.iranExtended14d, data);
+    } else {
+      payload.countries[task.id] = mergeSeries(payload.countries[task.id], data);
+    }
+    payload.taskUpdatedAt[task.id] = new Date().toISOString();
+  }
+
   return payload;
+}
+
+// Conveniencia (y compatibilidad con los tests): descarga + aplica en un
+// paso. En las funciones reales, preferir fetchTaskResults + relectura del
+// blob + applyTaskResults para minimizar la ventana de carrera.
+export async function updateTasks(existing, taskIds, opts = {}) {
+  const { results, errors } = await fetchTaskResults(taskIds, opts);
+  return applyTaskResults(existing, results, errors);
 }
