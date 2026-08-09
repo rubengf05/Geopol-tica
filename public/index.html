@@ -68,8 +68,8 @@
     </select>
     <select id="riskFilter" class="rounded-md px-3 py-2 text-sm">
       <option value="all">Todos</option>
-      <option value="top5">🔺 Top 5 más críticos</option>
-      <option value="top10">🔺 Top 10 más críticos</option>
+      <option value="top5"> Top 5 más críticos</option>
+      <option value="top10"> Top 10 más críticos</option>
     </select>
     <select id="sortBy" class="rounded-md px-3 py-2 text-sm">
       <option value="risk">Ordenar: Mayor riesgo primero</option>
@@ -455,7 +455,7 @@ async function triggerFetch() {
     const pending = tasks.filter((t) => !freshIds.has(t.id));
 
     if (pending.length === 0) {
-      btn.textContent = "✅ Todo al día";
+      btn.textContent = "Todo al día";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
       return;
     }
@@ -483,14 +483,14 @@ async function triggerFetch() {
       }
     }
 
-    btn.textContent = failed.length ? `⚠️ ${failed.length} consulta(s) sin dato` : "✅ Datos cargados";
+    btn.textContent = failed.length ? `${failed.length} consulta(s) sin dato` : "Datos cargados";
     setTimeout(() => {
       btn.textContent = originalText;
       btn.disabled = false;
       loadAll();
     }, 2500);
   } catch (e) {
-    btn.textContent = "❌ Error: " + e.message;
+    btn.textContent = " Error: " + e.message;
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 4000);
   }
 }
