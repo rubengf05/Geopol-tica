@@ -30,7 +30,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">🌍 Panel Geopolítico Global — LIVE</h1>
-        <p class="text-xs text-slate-400 mt-1">Tono mediático diario de 15 focos y potencias · Datos <a class="text-sky-300" href="https://www.gdeltproject.org/" target="_blank">GDELT 2.0</a> · refrescados cada hora por una función programada de Netlify · el panel lee la caché, no llama a GDELT</p>
+        <p class="text-xs text-slate-400 mt-1">Tono mediático diario de 13 focos de Oriente Medio y actores clave · Datos <a class="text-sky-300" href="https://www.gdeltproject.org/" target="_blank">GDELT 2.0</a> · refrescados por rotación cada 5 min por una función programada de Netlify · el panel lee la caché, no llama a GDELT</p>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <span id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47] status-loading">
@@ -57,11 +57,7 @@
     <select id="regionFilter" class="rounded-md px-3 py-2 text-sm">
       <option value="all">Todas las regiones</option>
       <option value="Oriente Medio">Oriente Medio</option>
-      <option value="Europa del Este">Europa del Este</option>
-      <option value="Asia-Pacífico">Asia-Pacífico</option>
-      <option value="África">África</option>
       <option value="América">América</option>
-      <option value="Europa Occidental">Europa Occidental</option>
     </select>
     <select id="riskFilter" class="rounded-md px-3 py-2 text-sm">
       <option value="all">Todos</option>
@@ -74,12 +70,12 @@
       <option value="delta">Ordenar: Mayor cambio semanal (peor)</option>
       <option value="alpha">Ordenar: Alfabético</option>
     </select>
-    <span class="text-xs text-slate-500 ml-auto" id="countLabel">15 países</span>
+    <span class="text-xs text-slate-500 ml-auto" id="countLabel">13 países</span>
   </div>
 
   <!-- COUNTRY GRID -->
   <section>
-    <h2 class="text-sm font-semibold text-slate-300 mb-3">🗺️ Estado geopolítico global (AvgTone últimos 7 días · GDELT)</h2>
+    <h2 class="text-sm font-semibold text-slate-300 mb-3">🗺️ Estado geopolítico — Oriente Medio y actores clave (AvgTone últimos 7 días · GDELT)</h2>
     <div id="countryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </section>
 
@@ -112,7 +108,7 @@
   <!-- FOOTER -->
   <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1">
     <p><strong class="text-slate-400">Fuente de datos:</strong> GDELT Project 2.0 DOC API — endpoints <code class="text-slate-400">mode=timelinetone</code> y <code class="text-slate-400">mode=artlist</code>. AvgTone se calcula como la media del sentimiento léxico de todos los artículos que mencionan al país en el período consultado. Rango teórico [-100, +100]; la ventana operativa práctica está entre -10 y +10.</p>
-    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT una vez por hora y guarda el resultado en <em>Netlify Blobs</em>. Este panel solo llama a <code class="text-slate-400">/api/geopolitical-data</code>, que lee esa caché — así ningún visitante golpea GDELT directamente y todos ven el mismo dato. Botón "Refrescar ahora" vuelve a leer la caché (no fuerza una nueva consulta a GDELT).</p>
+    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación (2 consultas cada 5 min — GDELT limita a 1 petición cada 5 s) y guarda el resultado en <em>Netlify Blobs</em>. Este panel solo llama a <code class="text-slate-400">/api/geopolitical-data</code>, que lee esa caché — así ningún visitante golpea GDELT directamente y todos ven el mismo dato. "🔄 Refrescar caché" relee la caché; "⚡ Cargar GDELT ahora" fuerza las 15 consultas una a una (~1-2 min).</p>
     <p><strong class="text-slate-400">Metodología del "riesgo":</strong> el orden y filtros "Top N más críticos" se calculan sobre el AvgTone medio de los últimos 7 días (más negativo = mayor riesgo). El delta semanal compara el último día vs. la media de los 6 días previos.</p>
   </footer>
 </main>
@@ -389,58 +385,63 @@ function scheduleNext(){
   state.timer = setTimeout(() => loadAll(), REFRESH_MS);
 }
 
-// ================= INIT =================
 // ================= TRIGGER MANUAL FETCH =================
+// GDELT exige ~1 petición cada 5 s (devuelve 429 si no) y las funciones de
+// Netlify tienen un límite de 10 s, así que la carga manual va tarea a
+// tarea: una llamada a /api/trigger-fetch?target=<id> por consulta GDELT,
+// con ~4 s de pausa entre ellas. El panel se va rellenando en vivo.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function runTask(id) {
+  const res = await fetch(`/api/trigger-fetch?target=${encodeURIComponent(id)}`, { method: "POST" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const result = await res.json();
+  return result.ok;
+}
+
 async function triggerFetch() {
   const btn = document.getElementById("triggerFetchBtn");
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "⏳ Cargando GDELT…";
+  btn.textContent = "⏳ Preparando…";
 
   try {
-    // La carga la hace una background function (sufijo -background):
-    // Netlify responde 202 de inmediato y sigue trabajando hasta 15 min
-    // por detrás. Por eso aquí no esperamos al resultado: disparamos y
-    // luego sondeamos /api/geopolitical-data hasta que aparezcan datos.
-    const res = await fetch("/api/trigger-fetch-background", { method: "POST" });
+    const listRes = await fetch("/api/trigger-fetch");
+    if (!listRes.ok) throw new Error(`HTTP ${listRes.status}`);
+    const { tasks } = await listRes.json();
 
-    if (res.status !== 202 && !res.ok) {
-      throw new Error("HTTP " + res.status);
-    }
-
-    btn.textContent = "⏳ Procesando en Netlify…";
-
-    // Sondeo: reintenta leer la caché durante ~5 min.
-    const maxAttempts = 30;
-    const intervalMs = 10000;
-    let loaded = false;
-
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, intervalMs));
+    let failed = [];
+    for (let i = 0; i < tasks.length; i++) {
+      btn.textContent = `⏳ Cargando GDELT… ${i + 1}/${tasks.length}`;
       try {
-        const check = await fetch("/api/geopolitical-data", { cache: "no-store" });
-        const data = await check.json();
-        if (check.ok && !data.error && data.countries) {
-          loaded = true;
-          break;
-        }
-      } catch (_) { /* seguimos reintentando */ }
+        if (!(await runTask(tasks[i]))) failed.push(tasks[i]);
+      } catch { failed.push(tasks[i]); }
+      loadAll(); // refresca el panel según van llegando los datos
+      if (i < tasks.length - 1) await sleep(4000);
     }
 
-    if (loaded) {
-      btn.textContent = "✅ Datos cargados";
-      loadAll(); // recarga el panel automáticamente
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }, 2000);
-    } else {
-      btn.textContent = "⏳ Aún procesando… recarga en 1 min";
-      btn.disabled = false;
+    // Reintento único de las que fallaron (GDELT a veces da un 429 puntual)
+    if (failed.length) {
+      const retry = failed;
+      failed = [];
+      for (let i = 0; i < retry.length; i++) {
+        btn.textContent = `⏳ Reintentando… ${i + 1}/${retry.length}`;
+        await sleep(6000);
+        try {
+          if (!(await runTask(retry[i]))) failed.push(retry[i]);
+        } catch { failed.push(retry[i]); }
+      }
     }
+
+    btn.textContent = failed.length ? `⚠️ ${failed.length} consulta(s) sin dato` : "✅ Datos cargados";
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.disabled = false;
+      loadAll();
+    }, 2500);
   } catch (e) {
     btn.textContent = "❌ Error: " + e.message;
-    btn.disabled = false;
+    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 4000);
   }
 }
 
