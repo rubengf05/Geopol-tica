@@ -5,8 +5,10 @@
 // el dato más antiguo (rotación), fusiona con el histórico de Netlify Blobs
 // y guarda. GDELT exige ~1 petición cada 5 s (429 si no) y las funciones de
 // Netlify tienen 10 s de límite: 2 tareas espaciadas 4 s caben justas.
-// Con 15 tareas y una ejecución cada 5 min, el panel entero se refresca en
-// ~40 min.
+// Con 27 tareas (13 series + histórico de Irán + 13 bloques de titulares) y
+// una ejecución cada 3 min, el panel entero se refresca en ~40 min, igual que
+// antes: se sube la frecuencia de la rotación en vez de meter más llamadas
+// por ejecución, que es lo que haría saltar el rate limit de GDELT.
 //
 // ORDEN ANTI-CARRERA: primero se descarga de GDELT (lo lento), después se
 // RELEE el blob y solo entonces se aplica y escribe. Y si ninguna tarea tuvo
@@ -51,5 +53,5 @@ export default async () => {
 };
 
 export const config = {
-  schedule: "*/5 * * * *",
+  schedule: "*/3 * * * *",
 };
