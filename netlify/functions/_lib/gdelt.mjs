@@ -48,13 +48,63 @@ const DAYS_SINCE_WAR_START = Math.max(
   Math.ceil((Date.now() - FEB_2026_START.getTime()) / (1000 * 60 * 60 * 24))
 );
 
+// Cuántos titulares se guardan por país. OJO: esto NO afecta al límite de
+// peticiones de GDELT — una consulta `artlist` devuelve N artículos con una
+// sola llamada. Lo que consume cuota es tener UNA TAREA por país (ver abajo).
+export const ARTICLES_PER_COUNTRY = 6;
+
 // Cada tarea = exactamente UNA llamada a GDELT.
+// El orden importa: `stalestTaskIds` lo respeta mientras nada se haya
+// ejecutado, así que primero van las series de los 13 países (es lo que pinta
+// la rejilla), luego el histórico largo de Irán y al final los titulares de
+// cada país (que solo se ven al abrir su ficha).
 export const TASKS = [
   ...COUNTRIES.map((c) => ({ id: c.code, kind: "country", query: c.query, days: 7 })),
-  // Ahora calcula los días automáticamente desde febrero de 2026
+  // Los días se calculan automáticamente desde febrero de 2026
   { id: "IRN14D", kind: "iran14d", query: "Iran", days: DAYS_SINCE_WAR_START },
-  { id: "IRNNEWS", kind: "articles", query: "Iran", max: 12 },
+  ...COUNTRIES.map((c) => ({
+    id: `${c.code}NEWS`, // IRN -> "IRNNEWS": mismo id que tenía la tarea de Irán
+    kind: "articles",
+    country: c.code,
+    query: c.query,
+    max: ARTICLES_PER_COUNTRY,
+  })),
 ];
+
+// Esqueleto del payload que se guarda en el blob. `articles` es un mapa
+// código-de-país -> titulares; `iranArticles` se mantiene como espejo de
+// `articles.IRN` por compatibilidad con payloads/consumidores antiguos.
+export function basePayload(existing, errors = []) {
+  const payload = {
+    updatedAt: new Date().toISOString(),
+    meta: COUNTRIES.map(({ code, name, flag, region, query }) => ({ code, name, flag, region, query })),
+    countries: { ...(existing?.countries || {}) },
+    articles: { ...(existing?.articles || {}) },
+    iranExtended14d: existing?.iranExtended14d || [],
+    iranArticles: existing?.iranArticles || [],
+    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
+    lastErrors: [...errors],
+  };
+  // Migración suave: blobs guardados antes de que hubiera titulares por país.
+  if (!payload.articles.IRN && payload.iranArticles.length) {
+    payload.articles.IRN = payload.iranArticles;
+  }
+  return payload;
+}
+
+// Escribe el resultado de UNA tarea sobre el payload (mutándolo).
+function applyOneTask(payload, task, data) {
+  if (task.kind === "articles") {
+    const code = task.country || "IRN";
+    payload.articles[code] = data;
+    if (code === "IRN") payload.iranArticles = data; // espejo de compatibilidad
+  } else if (task.kind === "iran14d") {
+    payload.iranExtended14d = mergeSeries(payload.iranExtended14d, data);
+  } else {
+    payload.countries[task.id] = mergeSeries(payload.countries[task.id], data);
+  }
+  payload.taskUpdatedAt[task.id] = new Date().toISOString();
+}
 
 export function parseGdeltDate(s) {
   // "20260802T000000Z" -> ISO 8601 UTC
@@ -170,30 +220,17 @@ export function ingestTaskData(existing, taskId, body) {
   const task = TASKS.find((t) => t.id === taskId);
   if (!task) throw new Error(`Tarea desconocida: ${taskId}`);
 
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    meta: COUNTRIES.map(({ code, name, flag, region }) => ({ code, name, flag, region })),
-    countries: { ...(existing?.countries || {}) },
-    iranExtended14d: existing?.iranExtended14d || [],
-    iranArticles: existing?.iranArticles || [],
-    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
-    lastErrors: [],
-  };
+  const payload = basePayload(existing);
 
+  let data;
   if (task.kind === "articles") {
-    const articles = sanitizeArticles(body?.articles, task.max);
-    if (articles.length === 0) throw new Error("sin artículos válidos");
-    payload.iranArticles = articles;
+    data = sanitizeArticles(body?.articles, task.max);
+    if (data.length === 0) throw new Error("sin artículos válidos");
   } else {
-    const points = sanitizeTimelinePoints(body?.points);
-    if (points.length === 0) throw new Error("sin puntos válidos");
-    if (task.kind === "iran14d") {
-      payload.iranExtended14d = mergeSeries(payload.iranExtended14d, points);
-    } else {
-      payload.countries[task.id] = mergeSeries(payload.countries[task.id], points);
-    }
+    data = sanitizeTimelinePoints(body?.points);
+    if (data.length === 0) throw new Error("sin puntos válidos");
   }
-  payload.taskUpdatedAt[task.id] = new Date().toISOString();
+  applyOneTask(payload, task, data);
   return payload;
 }
 
@@ -243,27 +280,12 @@ export async function fetchTaskResults(
 // escritura concurrente (p.ej. /api/ingest desde un navegador) puede
 // perderse es de milisegundos, no de los segundos que tardan los fetch.
 export function applyTaskResults(existing, results, errors = []) {
-  const payload = {
-    updatedAt: new Date().toISOString(),
-    meta: COUNTRIES.map(({ code, name, flag, region }) => ({ code, name, flag, region })),
-    countries: { ...(existing?.countries || {}) },
-    iranExtended14d: existing?.iranExtended14d || [],
-    iranArticles: existing?.iranArticles || [],
-    taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
-    lastErrors: [...errors],
-  };
+  const payload = basePayload(existing, errors);
 
   for (const [id, data] of Object.entries(results || {})) {
     const task = TASKS.find((t) => t.id === id);
     if (!task) continue;
-    if (task.kind === "articles") {
-      payload.iranArticles = data;
-    } else if (task.kind === "iran14d") {
-      payload.iranExtended14d = mergeSeries(payload.iranExtended14d, data);
-    } else {
-      payload.countries[task.id] = mergeSeries(payload.countries[task.id], data);
-    }
-    payload.taskUpdatedAt[task.id] = new Date().toISOString();
+    applyOneTask(payload, task, data);
   }
 
   return payload;
