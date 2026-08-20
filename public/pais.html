@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficha de país — Panel Geopolítico (GDELT)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #070d1b;
+  color: #dbe4f3;
+  }
+  .card { background:#0d1525; border:1px solid #1e2d47; transition: all .15s ease; }
+  .card:hover { border-color:#33507a; }
+  a.headline:hover { color:#93c5fd; text-decoration:underline; }
+  button { background:#0a1120; border:1px solid #1e2d47; color:#dbe4f3; }
+  button:hover { border-color:#3b6fd6; }
+  button[aria-pressed="true"] { background:#16233c; border-color:#3b6fd6; color:#fff; }
+  .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<header class="border-b border-[#1e2d47] bg-[#070d1b]/95 sticky top-0 z-20 backdrop-blur">
+  <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="text-xs text-slate-400 hover:text-sky-300 border border-[#1e2d47] rounded-full px-3 py-1">← Panel</a>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+          <span id="flag" class="text-2xl"></span><span id="name">Cargando…</span>
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5"><span id="subtitle">—</span></p>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 text-xs">
+      <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
+        Datos GDELT: <span id="serverUpdate" class="text-slate-300">—</span>
+      </span>
+      <button id="refreshBtn" class="px-3 py-1 rounded-full text-xs">🔄 Refrescar caché</button>
+      <button id="updateBtn" class="px-3 py-1 rounded-full text-xs">⚡ Actualizar este país</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+  <!-- KPIs -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="card rounded-lg p-4">
+      <div class="text-[11px] text-slate-500">Último valor</div>
+      <div id="kpiLast" class="text-2xl font-bold mt-1">—</div>
+    </div>
+    <div class="card rounded-lg p-4">
+      <div class="text-[11px] text-slate-500">Media 7 días</div>
+      <div id="kpiAvg" class="text-2xl font-bold mt-1">—</div>
+    </div>
+    <div class="card rounded-lg p-4">
+      <div class="text-[11px] text-slate-500">Δ semana (7d vs. 7d previos)</div>
+      <div id="kpiDelta" class="text-2xl font-bold mt-1">—</div>
+    </div>
+    <div class="card rounded-lg p-4">
+      <div class="text-[11px] text-slate-500">Histórico disponible</div>
+      <div id="kpiSpan" class="text-2xl font-bold mt-1 text-slate-300">—</div>
+    </div>
+  </section>
+
+  <!-- GRÁFICO -->
+  <section class="card rounded-lg p-4 sm:p-5">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+      <div>
+        <h2 class="text-sm font-semibold text-white">Evolución del tono mediático (AvgTone)</h2>
+        <p class="text-[11px] text-slate-500 mt-0.5">Media del sentimiento de los artículos que mencionan al país. Por debajo de 0 = cobertura negativa. Pasa el ratón por encima para ver cada punto.</p>
+      </div>
+      <div class="flex gap-1.5 text-xs" id="rangeBtns">
+        <button data-range="7" class="px-3 py-1 rounded-full">7 días</button>
+        <button data-range="30" class="px-3 py-1 rounded-full">30 días</button>
+        <button data-range="all" class="px-3 py-1 rounded-full" aria-pressed="true">Todo</button>
+      </div>
+    </div>
+    <div id="chart" class="w-full"><div class="text-xs text-slate-500 italic p-6 text-center">Cargando gráfico…</div></div>
+  </section>
+
+  <!-- NOTICIAS -->
+  <section>
+    <div class="flex flex-wrap items-baseline justify-between gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-slate-300">📰 Noticias relevantes — <span id="newsCountry">—</span></h2>
+      <p class="text-[11px] text-slate-500">Artículos más recientes indexados por GDELT para la consulta <code id="queryLabel" class="text-slate-400"></code></p>
+    </div>
+    <ol id="news" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-xs">
+      <li class="text-slate-500 italic col-span-full">Cargando titulares…</li>
+    </ol>
+  </section>
+
+  <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8">
+    <p>Datos: <a class="text-sky-300" href="https://www.gdeltproject.org/" target="_blank" rel="noopener">GDELT Project 2.0</a>. El panel lee una caché compartida en Netlify Blobs que se refresca por rotación cada pocos minutos; "⚡ Actualizar este país" pide a GDELT solo las 2 consultas de este país (serie + titulares) desde tu navegador.</p>
+  </footer>
+</main>
+
+<script type="module">
+import {
+  REFRESH_MS, toneColor, fmt, fmtDate, fmtTime, escapeHtml,
+  loadPanelData, renderChart, newsListHTML, cleanSeries, computeMetrics,
+  fetchTaskList, runTask, sleep,
+} from "./app.js";
+
+const code = (new URLSearchParams(location.search).get("code") || "IRN").toUpperCase();
+const state = { info: null, series: [], articles: [], range: "all", timer: null, error: null };
+
+function seriesForRange() {
+  const pts = cleanSeries(state.series);
+  if (state.range === "all" || !pts.length) return pts;
+  const days = Number(state.range);
+  const cutoff = pts[pts.length - 1].date.getTime() - days * 86400000;
+  const win = pts.filter((p) => p.date.getTime() >= cutoff);
+  return win.length >= 2 ? win : pts;
+}
+
+function render() {
+  const info = state.info;
+  if (info) {
+    document.getElementById("flag").textContent = info.flag || "";
+    document.getElementById("name").textContent = info.name;
+    document.getElementById("subtitle").textContent = `${info.region} · ${info.code}`;
+    document.getElementById("newsCountry").textContent = info.name;
+    document.getElementById("queryLabel").textContent = info.query || info.name;
+    document.title = `${info.name} — Panel Geopolítico (GDELT)`;
+  }
+
+  const pts = cleanSeries(state.series);
+  const m = computeMetrics(pts);
+  const setKpi = (id, value, color) => {
+    const el = document.getElementById(id);
+    el.textContent = value;
+    if (color) el.style.color = color;
+  };
+  setKpi("kpiLast", fmt(m.last, 2), toneColor(m.last));
+  setKpi("kpiAvg", fmt(m.avg7d, 2), toneColor(m.avg7d));
+  setKpi("kpiDelta", fmt(m.delta7d, 2), m.delta7d === null ? "#64748b" : m.delta7d < 0 ? "#f87171" : "#34d399");
+  document.getElementById("kpiSpan").textContent = pts.length
+    ? `${Math.max(1, Math.round((pts[pts.length - 1].date - pts[0].date) / 86400000))} días`
+    : "—";
+
+  const chartEl = document.getElementById("chart");
+  if (state.error && !pts.length) {
+    chartEl.innerHTML = `<div class="text-xs text-red-300 italic p-6 text-center">${escapeHtml(state.error)}</div>`;
+  } else {
+    renderChart(chartEl, seriesForRange(), { height: 360 });
+  }
+
+  document.getElementById("news").innerHTML = newsListHTML(state.articles, {
+    empty: "Todavía no hay titulares guardados para este país — la rotación los irá rellenando, o pulsa «⚡ Actualizar este país».",
+  });
+}
+
+async function load() {
+  try {
+    const d = await loadPanelData();
+    state.error = null;
+    const info = d.meta.find((c) => c.code === code);
+    state.info = info || { code, name: code, region: "—", flag: "🏳️" };
+
+    // Irán tiene además una serie larga (desde febrero de 2026) en su propia
+    // tarea: se fusiona con la serie de 7 días para no perder ni histórico ni
+    // resolución reciente.
+    const base = (d.countries[code] || {}).series || [];
+    const extra = code === "IRN" ? d.iranExtended : [];
+    const byTime = new Map();
+    for (const p of [...extra, ...base]) {
+      if (p && p.date && Number.isFinite(p.tone)) byTime.set(p.date.getTime(), p);
+    }
+    state.series = [...byTime.values()].sort((a, b) => a.date - b.date);
+    state.articles = d.articles[code] || [];
+
+    document.getElementById("serverUpdate").textContent = d.updatedAtServer
+      ? `${fmtTime(d.updatedAtServer)} ${fmtDate(d.updatedAtServer)}` : "—";
+  } catch (e) {
+    state.error = `Error leyendo /api/geopolitical-data: ${e.message}`;
+  }
+  render();
+  if (state.timer) clearTimeout(state.timer);
+  state.timer = setTimeout(load, REFRESH_MS);
+}
+
+// Solo las 2 consultas de este país (serie + titulares), espaciadas 7 s para
+// respetar el límite de GDELT (~1 petición cada 5 s).
+async function updateCountry() {
+  const btn = document.getElementById("updateBtn");
+  const original = btn.textContent;
+  btn.disabled = true;
+  try {
+    const all = await fetchTaskList();
+    const mine = all.filter((t) => t.id === code || t.id === `${code}NEWS` || (code === "IRN" && t.id === "IRN14D"));
+    let failed = 0;
+    for (let i = 0; i < mine.length; i++) {
+      btn.textContent = `⏳ ${i + 1}/${mine.length}…`;
+      try { if (!(await runTask(mine[i]))) failed++; } catch { failed++; }
+      await load();
+      if (i < mine.length - 1) await sleep(7000);
+    }
+    btn.textContent = failed ? `${failed} consulta(s) sin dato` : "Actualizado";
+  } catch (e) {
+    btn.textContent = "Error: " + e.message;
+  }
+  setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+}
+
+document.getElementById("rangeBtns").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-range]");
+  if (!btn) return;
+  state.range = btn.dataset.range;
+  for (const b of document.querySelectorAll("#rangeBtns button")) {
+    b.setAttribute("aria-pressed", String(b === btn));
+  }
+  render();
+});
+document.getElementById("refreshBtn").addEventListener("click", () => load());
+document.getElementById("updateBtn").addEventListener("click", updateCountry);
+
+load();
+</script>
+</body>
+</html>
