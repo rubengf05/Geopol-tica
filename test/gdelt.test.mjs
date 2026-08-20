@@ -17,6 +17,9 @@ import {
   sanitizeArticles,
   COUNTRIES,
   TASKS,
+  ARTICLES_PER_COUNTRY,
+  MAX_POINTS_KEPT,
+  basePayload,
 } from "../netlify/functions/_lib/gdelt.mjs";
 
 const ALL_TASK_IDS = TASKS.map((t) => t.id);
@@ -75,8 +78,12 @@ function installFakeFetch() {
     const mode = u.searchParams.get("mode");
     if (mode === "timelinetone") {
       const days = parseInt(u.searchParams.get("timespan"), 10);
+      // Fechas reales y consecutivas: con timespans largos (el histórico de
+      // Irán son ya >100 días) un "202608" + índice generaba fechas inválidas
+      // y la serie salía recortada.
+      const start = Date.UTC(2026, 0, 1);
       const data = Array.from({ length: days }, (_, i) => ({
-        date: `202608${String(i + 1).padStart(2, "0")}T000000Z`,
+        date: new Date(start + i * 86400000).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, ""),
         value: -3 + i * 0.1,
       }));
       return {
@@ -110,8 +117,14 @@ test("updateTasks: ejecuta todas las tareas y rellena el payload completo", asyn
     for (const c of COUNTRIES) {
       assert.equal(payload.countries[c.code].length, 7);
     }
-    assert.equal(payload.iranExtended14d.length, 14);
-    assert.equal(payload.iranArticles.length, 12);
+    const iranTask = TASKS.find((t) => t.kind === "iran14d");
+    assert.equal(payload.iranExtended14d.length, Math.min(iranTask.days, MAX_POINTS_KEPT));
+    // Titulares: uno por país + el espejo de compatibilidad de Irán
+    assert.equal(Object.keys(payload.articles).length, COUNTRIES.length);
+    for (const c of COUNTRIES) {
+      assert.equal(payload.articles[c.code].length, ARTICLES_PER_COUNTRY, `titulares de ${c.code}`);
+    }
+    assert.deepEqual(payload.iranArticles, payload.articles.IRN);
     assert.equal(payload.lastErrors.length, 0);
     // todas las tareas quedan selladas con su fecha de ejecución
     for (const id of ALL_TASK_IDS) {
@@ -141,7 +154,8 @@ test("updateTasks: una tarea solo actualiza su trozo y no pierde el resto", asyn
     assert.equal(second.countries.IRN.length, 8); // 7 nuevos + 1 antiguo
     // Y el resto de países no se toca ni se pierde
     assert.equal(second.countries.ISR.length, 7);
-    assert.equal(second.iranArticles.length, 12);
+    assert.equal(second.articles.IRN.length, ARTICLES_PER_COUNTRY);
+    assert.equal(second.articles.ISR.length, ARTICLES_PER_COUNTRY);
   } finally {
     restore();
   }
@@ -235,6 +249,34 @@ test("ingestTaskData: fusiona lo enviado por el navegador sin perder histórico"
   assert.ok(payload.taskUpdatedAt.ISR);
   assert.equal(payload.iranArticles.length, 1); // el resto no se toca
   assert.equal(payload.meta.length, COUNTRIES.length);
+});
+
+test("ingestTaskData: los titulares se guardan por país, no todos en Irán", () => {
+  const articles = [
+    { title: "Titular sirio", url: "https://x.com/s", domain: "x.com", seendate: "20260805T120000Z", tone: "-4" },
+  ];
+  const payload = ingestTaskData(null, "SYRNEWS", { articles });
+  assert.equal(payload.articles.SYR.length, 1);
+  assert.equal(payload.articles.IRN, undefined);   // no pisa los de Irán
+  assert.deepEqual(payload.iranArticles, []);      // ni el espejo antiguo
+  assert.ok(payload.taskUpdatedAt.SYRNEWS);
+});
+
+test("cada país tiene su tarea de titulares y su serie", () => {
+  for (const c of COUNTRIES) {
+    assert.ok(TASKS.some((t) => t.id === c.code && t.kind === "country"), `falta la serie de ${c.code}`);
+    const news = TASKS.find((t) => t.id === `${c.code}NEWS`);
+    assert.ok(news && news.kind === "articles" && news.country === c.code, `falta la tarea de titulares de ${c.code}`);
+  }
+  // El id histórico de Irán se mantiene para no perder su sello de rotación
+  assert.ok(TASKS.some((t) => t.id === "IRNNEWS"));
+});
+
+test("basePayload: migra blobs antiguos que solo tenían iranArticles", () => {
+  const viejo = { iranArticles: [{ title: "antiguo", url: "https://x.com/a" }] };
+  const payload = basePayload(viejo);
+  assert.equal(payload.articles.IRN.length, 1);
+  assert.equal(payload.articles.IRN[0].title, "antiguo");
 });
 
 test("ingestTaskData: rechaza tarea desconocida y datos sin nada válido", () => {
