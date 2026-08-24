@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Panel Geopolítico Global — Live (GDELT)</title>
+<title>Boldozer — Piloto Irán (Monitoring & Alerts)</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,8 +34,8 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">🌍 Panel Geopolítico Global — LIVE</h1>
-        <p class="text-xs text-slate-400 mt-1">Tono mediático de 13 focos de Oriente Medio y actores clave · Datos <a class="text-sky-300" href="https://www.gdeltproject.org/" target="_blank" rel="noopener">GDELT 2.0</a></p>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">🌍 Boldozer | Step 4: Monitoring System</h1>
+        <p class="text-xs text-sky-400 mt-1 font-medium">Piloto Exclusivo: República Islámica de Irán</p>
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <span id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47] status-loading">
@@ -56,42 +56,26 @@
 
 <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-  <!-- CONTROLS -->
-  <div class="flex flex-wrap gap-3 items-center">
-    <input id="searchBox" type="text" placeholder="🔎 Buscar país..." class="rounded-md px-3 py-2 text-sm w-48">
-    <select id="regionFilter" class="rounded-md px-3 py-2 text-sm">
-      <option value="all">Todas las regiones</option>
-      <option value="Oriente Medio">Oriente Medio</option>
-      <option value="América">América</option>
-    </select>
-    <select id="riskFilter" class="rounded-md px-3 py-2 text-sm">
-      <option value="all">Todos</option>
-      <option value="top5"> Top 5 más críticos</option>
-      <option value="top10"> Top 10 más críticos</option>
-    </select>
-    <select id="sortBy" class="rounded-md px-3 py-2 text-sm">
-      <option value="risk">Ordenar: Mayor riesgo primero</option>
-      <option value="riskAsc">Ordenar: Menor riesgo primero</option>
-      <option value="delta">Ordenar: Mayor cambio semanal (peor)</option>
-      <option value="alpha">Ordenar: Alfabético</option>
-    </select>
-    <span class="text-xs text-slate-500 ml-auto" id="countLabel">13 países</span>
+  <!-- CONTROLS (Simplificado para el Piloto) -->
+  <div class="flex flex-wrap gap-3 items-center border-b border-[#1e2d47] pb-4">
+    <p class="text-sm text-slate-300">Demostración en tiempo real de seguimiento de riesgos políticos y reputacionales mediáticos.</p>
+    <span class="text-xs text-slate-500 ml-auto" id="countLabel">Foco: 1 país</span>
   </div>
 
   <!-- COUNTRY GRID -->
   <section>
     <div class="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
-      <h2 class="text-sm font-semibold text-slate-300">🗺️ Estado geopolítico — Oriente Medio y actores clave (AvgTone últimos 7 días · GDELT)</h2>
-      <p class="text-[11px] text-slate-500">Pulsa un país para abrir su ficha: gráfico completo y titulares.</p>
+      <h2 class="text-sm font-semibold text-slate-300">🗺️ Estado geopolítico — Irán (AvgTone últimos 7 días · GDELT)</h2>
+      <p class="text-[11px] text-slate-500">Pulsa la tarjeta para abrir la ficha: gráfico completo y titulares.</p>
     </div>
+    <!-- Se mantiene el mismo grid, pero solo inyectaremos Irán -->
     <div id="countryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
   </section>
 
   <!-- FOOTER -->
-  <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1">
+  <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1 mt-8">
     <p><strong class="text-slate-400">Fuente de datos:</strong> GDELT Project 2.0 DOC API — endpoints <code class="text-slate-400">mode=timelinetone</code> y <code class="text-slate-400">mode=artlist</code>. AvgTone se calcula como la media del sentimiento léxico de todos los artículos que mencionan al país en el período consultado. Rango teórico [-100, +100]; la ventana operativa práctica está entre -10 y +10.</p>
-    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación (2 consultas cada 3 min — GDELT limita a 1 petición cada 5 s) y guarda el resultado en <em>Netlify Blobs</em>. Son 27 tareas (13 series + histórico largo de Irán + 13 bloques de titulares), así que el panel entero se refresca en ~40 min. El navegador solo llama a <code class="text-slate-400">/api/geopolitical-data</code> (la caché compartida — todos ven el mismo dato).</p>
-    <p><strong class="text-slate-400">Metodología del "riesgo":</strong> el orden y los filtros "Top N más críticos" se calculan sobre el AvgTone medio de los últimos 7 días (más negativo = mayor riesgo). El delta semanal compara la media de los últimos 7 días con la de los 7 anteriores.</p>
+    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación y guarda el resultado en <em>Netlify Blobs</em>. El navegador solo llama a <code class="text-slate-400">/api/geopolitical-data</code> (la caché compartida).</p>
   </footer>
 </main>
 
@@ -103,31 +87,12 @@ import {
 
 const state = { meta: [], countries: {}, lastUpdate: null, updatedAtServer: null, timer: null };
 
-// ================= RENDER: REJILLA DE PAÍSES =================
-// Sin gráficos aquí: cada tarjeta es un enlace a su ficha (pais.html), que se
-// abre en una pestaña nueva con el gráfico grande y los titulares del país.
+// ================= RENDER: REJILLA DE PAÍSES (Filtrado a Irán) =================
 function renderCountryGrid() {
-  const search = document.getElementById("searchBox").value.trim().toLowerCase();
-  const region = document.getElementById("regionFilter").value;
-  const riskFilter = document.getElementById("riskFilter").value;
-  const sortBy = document.getElementById("sortBy").value;
-
-  let data = state.meta.filter((c) =>
-    (region === "all" || c.region === region) &&
-    (c.name.toLowerCase().includes(search) || c.code.toLowerCase().includes(search))
-  ).map((c) => ({ ...c, ...state.countries[c.code] }));
-
-  if (riskFilter === "top5" || riskFilter === "top10") {
-    const n = riskFilter === "top5" ? 5 : 10;
-    data = [...data].sort((a, b) => (a.avg7d ?? 99) - (b.avg7d ?? 99)).slice(0, n);
-  }
-
-  if (sortBy === "risk") data.sort((a, b) => (a.avg7d ?? 99) - (b.avg7d ?? 99));
-  else if (sortBy === "riskAsc") data.sort((a, b) => (b.avg7d ?? -99) - (a.avg7d ?? -99));
-  else if (sortBy === "delta") data.sort((a, b) => (a.delta7d ?? 99) - (b.delta7d ?? 99));
-  else if (sortBy === "alpha") data.sort((a, b) => a.name.localeCompare(b.name));
-
-  document.getElementById("countLabel").textContent = `${data.length} país${data.length === 1 ? "" : "es"}`;
+  // Filtramos el estado para que solo agarre a Irán (por código ISO 'IR' o nombre)
+  let data = state.meta
+    .filter((c) => c.code === "IR" || c.name.toLowerCase().includes("ir"))
+    .map((c) => ({ ...c, ...state.countries[c.code] }));
 
   document.getElementById("countryGrid").innerHTML = data.map((c) => `
     <a class="card rounded-lg p-4 flex flex-col gap-3" href="pais.html?code=${encodeURIComponent(c.code)}"
@@ -179,7 +144,7 @@ async function loadAll() {
     const failed = Object.values(state.countries).filter((c) => c.error).length;
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
     if (state.meta.length > 0 && failed === state.meta.length) setStatus("error", `Sin datos en la caché — ${elapsed}s`);
-    else if (failed > 0) setStatus("ok", `${state.meta.length - failed}/${state.meta.length} países OK (${failed} sin dato) — ${elapsed}s`);
+    else if (failed > 0) setStatus("ok", `OK con avisos (${failed} sin dato global) — ${elapsed}s`);
     else setStatus("ok", `OK — ${elapsed}s`);
   } catch (e) {
     setStatus("error", `Error leyendo /api/geopolitical-data: ${e.message}`);
@@ -203,9 +168,6 @@ function scheduleNext() {
 }
 
 // ================= CARGA MANUAL DE GDELT =================
-// Son 27 consultas espaciadas ~7 s (el rate limit de GDELT es de 1 cada 5 s),
-// así que la pasada completa tarda ~3 min. Se saltan las tareas refrescadas
-// hace menos de 15 min para no gastar cuota en lo que ya está al día.
 async function triggerFetch() {
   const btn = document.getElementById("triggerFetchBtn");
   const originalText = btn.textContent;
@@ -224,39 +186,28 @@ async function triggerFetch() {
           .filter(([, at]) => new Date(at).getTime() > cutoff)
           .map(([id]) => id)
       );
-    } catch { /* sin caché aún: se cargan todas */ }
-    const pending = tasks.filter((t) => !freshIds.has(t.id));
+    } catch { /* sin caché aún */ }
+    
+    // Filtramos para que al forzar refresco solo priorice a Irán para no agotar la API en la demo
+    const pending = tasks.filter((t) => !freshIds.has(t.id) && (t.id.includes('IR') || t.id.includes('iran')));
 
     if (pending.length === 0) {
-      btn.textContent = "Todo al día";
+      btn.textContent = "Irán ya está al día";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
       return;
     }
 
     let failed = [];
     for (let i = 0; i < pending.length; i++) {
-      btn.textContent = `⏳ Cargando GDELT… ${i + 1}/${pending.length}`;
+      btn.textContent = `⏳ Cargando Irán… ${i + 1}/${pending.length}`;
       try {
         if (!(await runTask(pending[i]))) failed.push(pending[i]);
       } catch { failed.push(pending[i]); }
-      loadAll(); // el panel se va rellenando según llegan los datos
+      loadAll(); 
       if (i < pending.length - 1) await sleep(7000);
     }
 
-    // Reintento único de las que fallaron (GDELT a veces da un 429 puntual)
-    if (failed.length) {
-      const retry = failed;
-      failed = [];
-      for (let i = 0; i < retry.length; i++) {
-        btn.textContent = `⏳ Reintentando… ${i + 1}/${retry.length}`;
-        await sleep(8000);
-        try {
-          if (!(await runTask(retry[i]))) failed.push(retry[i]);
-        } catch { failed.push(retry[i]); }
-      }
-    }
-
-    btn.textContent = failed.length ? `${failed.length} consulta(s) sin dato` : "Datos cargados";
+    btn.textContent = failed.length ? `Fallo al actualizar Irán` : "Datos cargados";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
   } catch (e) {
     btn.textContent = " Error: " + e.message;
@@ -265,14 +216,9 @@ async function triggerFetch() {
 }
 
 // ================= INIT =================
-document.getElementById("searchBox").addEventListener("input", renderCountryGrid);
-document.getElementById("regionFilter").addEventListener("change", renderCountryGrid);
-document.getElementById("riskFilter").addEventListener("change", renderCountryGrid);
-document.getElementById("sortBy").addEventListener("change", renderCountryGrid);
 document.getElementById("refreshBtn").addEventListener("click", () => loadAll());
 document.getElementById("triggerFetchBtn").addEventListener("click", triggerFetch);
 
-renderCountryGrid();
 loadAll();
 </script>
 </body>
