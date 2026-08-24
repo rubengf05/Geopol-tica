@@ -11,7 +11,7 @@
 <style>
   body {
     font-family: 'Source Serif Pro', 'Georgia', serif;
-    background-color: #fff1e5; /* Color clásico del Financial Times */
+    background-color: #fff1e5;
     color: #111111;
   }
   h1, h2, h3 {
@@ -64,10 +64,10 @@
           Dashboard: <span id="lastUpdate" class="font-medium">—</span>
         </span>
         <span class="px-3 py-1 bg-white border border-gray-300">
-          GDELT: <span id="serverUpdate" class="font-medium">—</span>
+          GDELT Data: <span id="serverUpdate" class="font-medium">—</span>
         </span>
         <button id="refreshBtn" class="px-3 py-1 transition-colors">Refresh Cache</button>
-        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors">Fetch Live</button>
+        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors">Fetch Live GDELT</button>
       </div>
     </div>
   </div>
@@ -99,45 +99,51 @@ import {
 
 const state = { meta: [], countries: {}, lastUpdate: null, updatedAtServer: null, timer: null };
 
-// ================= RENDER: FILTERED TO IRAN =================
+// ================= RENDER: STRICTLY IRAN =================
 function renderCountryGrid() {
+  // Filtro estricto por código ISO para evitar falsos positivos
   let data = state.meta
-    .filter((c) => c.code === "IR" || c.name.toLowerCase().includes("ir"))
+    .filter((c) => c.code === "IR")
     .map((c) => ({ ...c, ...state.countries[c.code] }));
 
-  // Notamos la omisión intencional de la bandera (c.flag)
-  document.getElementById("countryGrid").innerHTML = data.map((c) => `
-    <a class="card p-6 flex flex-col gap-5" href="pais.html?code=${encodeURIComponent(c.code)}"
-       target="_blank" rel="noopener" title="Open full dossier for ${escapeHtml(c.name)}">
-      <div class="flex items-start justify-between border-b border-gray-200 pb-3">
-        <div>
-          <h3 class="text-2xl font-bold text-black">${escapeHtml(c.name)}</h3>
-          <span class="text-xs text-gray-500 uppercase tracking-wider font-sans">${escapeHtml(c.region)} · ISO: ${escapeHtml(c.code)}</span>
-        </div>
-        ${c.error ? `<span class="text-xs text-red-700 font-sans border border-red-200 px-2 py-1 bg-red-50">No Data</span>`
-                  : `<span class="text-xs text-gray-600 font-sans px-2 py-1 bg-gray-100 border border-gray-200">Last 7 Days</span>`}
-      </div>
+  document.getElementById("countryGrid").innerHTML = data.map((c) => {
+    // Traducción al vuelo de datos que vengan de app.js en español
+    const englishName = c.name.toLowerCase().includes("ir") ? "Iran" : escapeHtml(c.name);
+    const englishRegion = c.region === "Oriente Medio" ? "Middle East" : escapeHtml(c.region);
 
-      <div class="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50 font-sans">
-        <div class="metric-box p-3 text-center">
-          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Today</div>
-          <div class="text-xl font-semibold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
+    return `
+      <a class="card p-6 flex flex-col gap-5" href="pais.html?code=${encodeURIComponent(c.code)}"
+         target="_blank" rel="noopener" title="Open full dossier for ${englishName}">
+        <div class="flex items-start justify-between border-b border-gray-200 pb-3">
+          <div>
+            <h3 class="text-2xl font-bold text-black">${englishName}</h3>
+            <span class="text-xs text-gray-500 uppercase tracking-wider font-sans">${englishRegion} · ISO: ${escapeHtml(c.code)}</span>
+          </div>
+          ${c.error ? `<span class="text-xs text-red-700 font-sans border border-red-200 px-2 py-1 bg-red-50">No Data</span>`
+                    : `<span class="text-xs text-gray-600 font-sans px-2 py-1 bg-gray-100 border border-gray-200">Last 7 Days</span>`}
         </div>
-        <div class="metric-box p-3 text-center">
-          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">7d Avg</div>
-          <div class="text-xl font-semibold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
-        </div>
-        <div class="metric-box p-3 text-center">
-          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Weekly Δ</div>
-          <div class="text-xl font-semibold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a"}">${fmt(c.delta7d, 1)}</div>
-        </div>
-      </div>
 
-      <div class="text-xs text-blue-700 font-sans font-medium text-right hover:underline">
-        View full chart and news &rarr;
-      </div>
-    </a>
-  `).join("");
+        <div class="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50 font-sans">
+          <div class="metric-box p-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Today</div>
+            <div class="text-xl font-semibold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
+          </div>
+          <div class="metric-box p-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">7d Avg</div>
+            <div class="text-xl font-semibold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
+          </div>
+          <div class="metric-box p-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Weekly Δ</div>
+            <div class="text-xl font-semibold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a"}">${fmt(c.delta7d, 1)}</div>
+          </div>
+        </div>
+
+        <div class="text-xs text-blue-700 font-sans font-medium text-right hover:underline">
+          View full chart and news &rarr;
+        </div>
+      </a>
+    `;
+  }).join("");
 }
 
 // ================= LOAD SYSTEM =================
@@ -154,9 +160,14 @@ async function loadAll() {
 
     const failed = Object.values(state.countries).filter((c) => c.error).length;
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    if (state.meta.length > 0 && failed === state.meta.length) setStatus("error", `Cache empty — ${elapsed}s`);
-    else if (failed > 0) setStatus("ok", `OK (${failed} missing globally) — ${elapsed}s`);
-    else setStatus("ok", `OK — ${elapsed}s`);
+    
+    if (state.meta.length > 0 && failed === state.meta.length) {
+      setStatus("error", `Cache empty — ${elapsed}s`);
+    } else if (failed > 0) {
+      setStatus("ok", `Active (${failed} background tasks pending) — ${elapsed}s`);
+    } else {
+      setStatus("ok", `Active — ${elapsed}s`);
+    }
   } catch (e) {
     setStatus("error", `API Error: ${e.message}`);
   }
@@ -202,7 +213,7 @@ async function triggerFetch() {
     const pending = tasks.filter((t) => !freshIds.has(t.id) && (t.id.includes('IR') || t.id.includes('iran')));
 
     if (pending.length === 0) {
-      btn.textContent = "Up to date";
+      btn.textContent = "Data is up to date";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
       return;
     }
@@ -217,7 +228,7 @@ async function triggerFetch() {
       if (i < pending.length - 1) await sleep(7000);
     }
 
-    btn.textContent = failed.length ? `Update failed` : "Data loaded";
+    btn.textContent = failed.length ? `Update failed` : "Data successfully loaded";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
   } catch (e) {
     btn.textContent = "Error: " + e.message;
