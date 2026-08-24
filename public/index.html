@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Iran Geopolitical Monitor — Live (GDELT)</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<!-- Chart.js for rendering the timeline -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Google Fonts: Lora (Serif) for Financial Times aesthetic -->
+<!-- Google Fonts: Lora (Serif) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -19,31 +19,23 @@
     color: #111111;
   }
   
-  h1, h2, h3 {
-    font-weight: 600;
-    color: #000000;
-  }
-
+  h1, h2, h3 { font-weight: 600; color: #000000; }
+  
   .border-ft { border-color: #dcdcdc; }
-  .bg-ft-light { background-color: #fdfdfd; }
-  .bg-ft-box { background-color: #f3eed9; } /* Classic FT paper tint for analytical boxes */
+  .bg-ft-box { background-color: #f3eed9; } /* Classic FT paper tint */
   
   .news-card {
     border-bottom: 1px solid #dcdcdc;
     transition: background-color 0.15s ease;
   }
-  .news-card:hover {
-    background-color: #f9f9f9;
-  }
+  .news-card:hover { background-color: #f9f9f9; }
 
   /* Status Dots */
   .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% {opacity: 1;} 50% {opacity: 0.35;} }
   .status-ok { color: #059669; }
 
-  button {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
+  button { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -57,8 +49,8 @@
         <p class="text-sm text-gray-500 mt-1 italic">Media tone analysis & latest coverage · Data by GDELT 2.0</p>
       </div>
       <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
-        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gray-50 border border-ft status-ok text-gray-700">
-          <span class="w-2 h-2 rounded-full bg-current pulse-dot"></span> 
+        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gray-50 border border-ft text-gray-700">
+          <span class="w-2 h-2 rounded-full bg-current pulse-dot status-ok"></span> 
           <span>Live</span>
         </span>
         <button id="refreshBtn" class="px-3 py-1.5 rounded-sm border border-ft bg-white hover:bg-gray-50 transition">
@@ -69,8 +61,8 @@
   </div>
 </header>
 
-<!-- MAIN CONTENT (Centered, narrower for elegance) -->
-<main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+<!-- MAIN CONTENT -->
+<main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
   <!-- CHART SECTION -->
   <section class="flex flex-col items-center">
@@ -86,18 +78,24 @@
       <canvas id="iranChart" height="120"></canvas>
     </div>
 
-    <!-- Quantitative Analysis Box (Derivative/Velocity) -->
-    <div class="w-full bg-ft-box border border-ft p-5 rounded-sm text-sm">
-      <h3 class="font-bold mb-2 uppercase tracking-wide text-xs font-sans text-gray-600">Quantitative Analysis & Velocity</h3>
-      <p id="derivativeAnalysis" class="leading-relaxed">
-        <!-- JS will inject the derivative analysis here -->
-      </p>
+    <!-- Quantitative Analysis Box (Fully Automated) -->
+    <div class="w-full bg-ft-box border border-ft p-6 rounded-sm text-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 border-b border-gray-300 pb-2">
+        <h3 class="font-bold uppercase tracking-wide text-xs font-sans text-gray-600">Automated Assessment</h3>
+        <span id="statusBadge" class="font-bold font-sans text-[11px] px-2 py-1 rounded-sm border bg-white tracking-wider">
+          <!-- JS will inject badge here -->
+        </span>
+      </div>
+      
+      <div id="derivativeAnalysis" class="leading-relaxed text-[15px]">
+        <!-- JS will inject the dynamic interpretation here -->
+      </div>
     </div>
   </section>
 
   <!-- NEWS SECTION -->
   <section>
-    <div class="mb-4 border-b border-black pb-2">
+    <div class="mb-4 border-b border-black pb-2 mt-4">
       <h2 class="text-xl">Latest Coverage</h2>
     </div>
     <div id="newsContainer" class="flex flex-col">
@@ -106,14 +104,14 @@
   </section>
 
   <!-- FOOTER -->
-  <footer class="text-xs text-gray-500 border-t border-ft pt-6 pb-12 space-y-3 font-sans text-center">
+  <footer class="text-xs text-gray-500 border-t border-ft pt-6 pb-12 font-sans text-center">
     <p>Data Source: GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of all articles mentioning the country.</p>
   </footer>
 </main>
 
 <script>
   // ==========================================
-  // 1. DATA (Replace with your GDELT fetch)
+  // 1. DATA
   // ==========================================
   
   const labels = Array.from({length: 30}, (_, i) => {
@@ -122,11 +120,12 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   });
 
-  // Mock data representing a sudden crisis in the middle of the month
+  // MOCK DATA: Notice how the last 3 days drop heavily to trigger the "CRITICAL" state.
+  // Change the last 3 values to -4.0 to see the assessment change to "STABLE".
   const iranTimelineData = [
     -3.2, -3.5, -4.1, -3.8, -4.5, -5.2, -4.8, -4.1, -3.9, -3.6,
-    -3.4, -4.0, -4.2, -6.5, -7.8, -8.1, -7.5, -6.2, -5.5, -5.1,
-    -4.8, -4.5, -4.6, -4.2, -3.9, -4.1, -4.0, -3.8, -4.2, -4.5
+    -3.4, -4.0, -4.2, -4.8, -4.1, -3.9, -4.5, -3.8, -4.2, -4.1,
+    -3.8, -4.0, -4.2, -3.9, -4.1, -3.8, -4.0, -6.5, -7.8, -8.5
   ];
 
   const iranNewsData = [
@@ -148,47 +147,90 @@
   }
 
   // ==========================================
-  // 3. DYNAMIC INTERPRETATION (Velocity / Ratio)
+  // 3. DYNAMIC INTERPRETATION ENGINE
   // ==========================================
   
-  function analyzeVelocity(data, mean, stdDev) {
+  function analyzeCurrentSituation(data, mean, stdDev) {
+    const currentTone = data[data.length - 1];
     const lowerThreshold = mean - stdDev;
-    let analysisText = `The historical mean is <strong>${mean.toFixed(2)}</strong> with a standard deviation (SD) of <strong>${stdDev.toFixed(2)}</strong>. No recent drops below -1 SD detected.`;
+    const upperThreshold = mean + stdDev;
+    
+    let daysToDrop = 0;
+    let velocity = 0; // Derivative: Points per day
 
-    // Find the most recent day where tone dropped below -1 SD
-    let idx_sd = -1;
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i] <= lowerThreshold) {
-        idx_sd = i;
-        break;
-      }
-    }
-
-    if (idx_sd !== -1) {
-      // Look backward from that drop to find when it was last at or above the mean
-      let idx_mean = -1;
-      for (let i = idx_sd; i >= 0; i--) {
+    // Calculate how many days since the tone was last at/above the mean
+    if (currentTone < mean) {
+      for (let i = data.length - 2; i >= 0; i--) {
         if (data[i] >= mean) {
-          idx_mean = i;
+          daysToDrop = (data.length - 1) - i;
+          velocity = Math.abs((data[i] - currentTone) / daysToDrop);
           break;
         }
       }
+    }
 
-      if (idx_mean !== -1) {
-        const daysToSD = idx_sd - idx_mean;
-        const dropAmount = (data[idx_mean] - data[idx_sd]).toFixed(2);
-        const velocity = (dropAmount / daysToSD).toFixed(2); // Derivative calculation
+    // Determine the state dynamically based on thresholds and velocity
+    let statusLabel = "";
+    let badgeColorClass = "";
+    let assessmentText = "";
 
-        analysisText = `
-          The historical mean over this period is <strong>${mean.toFixed(2)}</strong> (SD: ±${stdDev.toFixed(2)}). 
+    if (currentTone <= lowerThreshold) {
+      if (daysToDrop > 0 && daysToDrop <= 5) {
+        // STATE: RAPID ESCALATION
+        statusLabel = "CRITICAL: RAPID ESCALATION";
+        badgeColorClass = "text-red-700 border-red-700";
+        assessmentText = `
+          The current media tone (<strong>${currentTone.toFixed(2)}</strong>) has violently breached the statistical danger threshold (-1 SD). 
+          Crucially, this collapse from the historical mean occurred in just <strong>${daysToDrop} days</strong>, representing an extreme escalation rate of <strong>-${velocity.toFixed(2)} points per day</strong>. 
           <br><br>
-          <strong>Escalation Velocity:</strong> During the most recent critical event, the media tone collapsed from the historical mean to below the -1 SD threshold in just <strong>${daysToSD} days</strong>. 
-          This represents a negative escalation rate of <strong>-${velocity} points per day</strong>, indicating a highly rapid deterioration in geopolitical sentiment.
+          <strong>Interpretation:</strong> This trajectory strongly indicates an acute geopolitical shock or a sudden flashpoint, rather than routine friction. The rapidity of the drop leaves limited diplomatic runway for immediate de-escalation.
+        `;
+      } else {
+        // STATE: CHRONIC DETERIORATION
+        statusLabel = "HIGH RISK: CHRONIC DETERIORATION";
+        badgeColorClass = "text-orange-700 border-orange-700";
+        assessmentText = `
+          The current media tone (<strong>${currentTone.toFixed(2)}</strong>) sits deeply below the -1 SD threshold. 
+          However, reaching this state took <strong>${daysToDrop || '>5'} days</strong> with a slower drift of <strong>-${velocity.toFixed(2)} pts/day</strong>.
+          <br><br>
+          <strong>Interpretation:</strong> We are observing a structural, slow-burning degradation of the geopolitical environment. While not a sudden shock, prolonged exposure at these levels often precedes major structural shifts or hardline policy changes.
         `;
       }
+    } else if (currentTone < mean && currentTone > lowerThreshold) {
+      // STATE: ELEVATED TENSION
+      statusLabel = "WARNING: ELEVATED TENSION";
+      badgeColorClass = "text-amber-600 border-amber-600";
+      assessmentText = `
+        Sentiment currently reads at <strong>${currentTone.toFixed(2)}</strong>, trending below the historical baseline of ${mean.toFixed(2)}, but it has not yet breached the critical -1 SD threshold.
+        <br><br>
+        <strong>Interpretation:</strong> The environment is experiencing elevated diplomatic friction or localized negative coverage. The situation requires monitoring, but currently lacks the mathematical momentum to be classified as an acute crisis.
+      `;
+    } else if (currentTone >= mean && currentTone <= upperThreshold) {
+      // STATE: STABLE
+      statusLabel = "STABLE: BASELINE NORMALITY";
+      badgeColorClass = "text-emerald-700 border-emerald-700";
+      assessmentText = `
+        The current tone (<strong>${currentTone.toFixed(2)}</strong>) is hovering comfortably within normal statistical parameters (Mean: ${mean.toFixed(2)} ± ${stdDev.toFixed(2)}).
+        <br><br>
+        <strong>Interpretation:</strong> Media sentiment reflects routine regional activity. No significant anomalies or acute geopolitical risks are currently detected in the data stream.
+      `;
+    } else {
+      // STATE: POSITIVE/DE-ESCALATION
+      statusLabel = "POSITIVE: DE-ESCALATION";
+      badgeColorClass = "text-blue-700 border-blue-700";
+      assessmentText = `
+        Remarkably, the current tone (<strong>${currentTone.toFixed(2)}</strong>) has broken above the +1 SD threshold.
+        <br><br>
+        <strong>Interpretation:</strong> This signifies an unusually positive shift in media coverage, strongly pointing toward successful diplomatic breakthroughs, structural de-escalation, or highly favorable regional developments.
+      `;
     }
+
+    // Inject into DOM
+    const badgeElement = document.getElementById('statusBadge');
+    badgeElement.innerText = statusLabel;
+    badgeElement.className = `font-bold font-sans text-[11px] px-2 py-1 rounded-sm border bg-white tracking-wider ${badgeColorClass}`;
     
-    document.getElementById('derivativeAnalysis').innerHTML = analysisText;
+    document.getElementById('derivativeAnalysis').innerHTML = assessmentText;
   }
 
   // ==========================================
@@ -199,7 +241,8 @@
     const ctx = document.getElementById('iranChart').getContext('2d');
     const { mean, stdDev } = calculateStats(iranTimelineData);
     
-    analyzeVelocity(iranTimelineData, mean, stdDev);
+    // Execute Dynamic Assessment
+    analyzeCurrentSituation(iranTimelineData, mean, stdDev);
 
     const meanLine = iranTimelineData.map(() => mean);
     const lowerStdDevLine = iranTimelineData.map(() => mean - stdDev);
@@ -213,10 +256,10 @@
           {
             label: 'AvgTone',
             data: iranTimelineData,
-            borderColor: '#0f172a', // Dark slate/black
+            borderColor: '#0f172a',
             borderWidth: 2,
             tension: 0.3,
-            fill: false, // SHADING REMOVED HERE
+            fill: false, 
             pointBackgroundColor: '#0f172a',
             pointRadius: 2,
             pointHoverRadius: 5
@@ -224,7 +267,7 @@
           {
             label: '-1 Std Dev',
             data: lowerStdDevLine,
-            borderColor: '#ef4444', // Reddish tint for danger threshold
+            borderColor: '#ef4444',
             borderWidth: 1,
             borderDash: [5, 5],
             pointRadius: 0,
@@ -265,14 +308,8 @@
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: { maxTicksLimit: 10, font: { family: "sans-serif", size: 11 } }
-          },
-          y: {
-            grid: { color: '#f1f5f9' },
-            ticks: { font: { family: "sans-serif", size: 11 } }
-          }
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { family: "sans-serif", size: 11 } } },
+          y: { grid: { color: '#f1f5f9' }, ticks: { font: { family: "sans-serif", size: 11 } } }
         }
       }
     });
@@ -298,12 +335,6 @@
   document.addEventListener("DOMContentLoaded", () => {
     renderChart();
     renderNews();
-    
-    document.getElementById('refreshBtn').addEventListener('click', function() {
-      const originalText = this.innerText;
-      this.innerText = "Refreshing...";
-      setTimeout(() => { this.innerText = originalText; }, 1000);
-    });
   });
 </script>
 </body>
