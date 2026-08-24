@@ -24,12 +24,6 @@
   .border-ft { border-color: #dcdcdc; }
   .bg-ft-box { background-color: #f3eed9; }
   
-  .news-card {
-    border-bottom: 1px solid #dcdcdc;
-    transition: background-color 0.15s ease;
-  }
-  .news-card:hover { background-color: #f9f9f9; }
-
   .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% {opacity: 1;} 50% {opacity: 0.35;} }
   .status-loading { color: #d97706; }
@@ -62,7 +56,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl tracking-tight">Iran Geopolitical Monitor</h1>
-        <p class="text-sm text-gray-500 mt-1 italic">Media tone analysis & latest coverage · Data by GDELT 2.0</p>
+        <p class="text-sm text-gray-500 mt-1 italic">Media tone analysis & quantitative benchmarking · GDELT 2.0</p>
       </div>
       <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
         <span id="statusBadgeContainer" class="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gray-50 border border-ft text-gray-700">
@@ -78,13 +72,13 @@
 </header>
 
 <!-- MAIN CONTENT -->
-<main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+<main class="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-10">
 
-  <!-- CHART SECTION -->
+  <!-- DYNAMIC CHART & ANALYSIS SECTION -->
   <section class="flex flex-col items-center">
     <div class="w-full mb-4 flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-ft pb-2">
       <div>
-        <h2 class="text-xl mb-1">Geopolitical Tone (AvgTone)</h2>
+        <h2 class="text-xl mb-1">Current Geopolitical Tone (AvgTone)</h2>
         <p class="text-xs text-gray-500 max-w-md">
           Dashed lines represent ±1 Standard Deviation calculated dynamically over the selected timeframe.
         </p>
@@ -118,18 +112,71 @@
     </div>
   </section>
 
-  <!-- NEWS SECTION -->
+  <!-- STATIC HISTORICAL BENCHMARKS SECTION -->
   <section>
     <div class="mb-4 border-b border-black pb-2 mt-4">
-      <h2 class="text-xl">Latest Coverage</h2>
+      <h2 class="text-xl">Historical Extremes & Benchmark Events</h2>
+      <p class="text-sm text-gray-500 mt-1 italic">
+        Key moments of severe geopolitical stress since the outbreak of the conflict (Feb 2026). Use these metrics to benchmark current escalation velocities and sentiment collapses.
+      </p>
     </div>
-    <div id="newsContainer" class="flex flex-col">
-      <p class="text-sm text-gray-500 py-4 font-sans">Loading headlines…</p>
+    
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left font-sans border-collapse">
+        <thead class="border-b-2 border-black text-xs uppercase text-gray-600">
+          <tr>
+            <th class="py-3 px-2 font-semibold">Date</th>
+            <th class="py-3 px-2 font-semibold">Event Catalyst & Context</th>
+            <th class="py-3 px-2 font-semibold text-right">Min Tone</th>
+            <th class="py-3 px-2 font-semibold text-right">Dev (SD)</th>
+            <th class="py-3 px-2 font-semibold text-right">Velocity</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y border-ft border-b border-black">
+          
+          <!-- Benchmark 1 -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Apr 12, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Strait of Hormuz Naval Clash</strong>
+              War escalation due to the interception of commercial vessels, leading to direct naval skirmishes and airspace closures. This represents the fastest deterioration in media tone on record.
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-9.50</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.8 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-2.20 <span class="text-[10px]">pts/day</span></td>
+          </tr>
+
+          <!-- Benchmark 2 -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Jul 04, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Direct Missile Exchange</strong>
+              War escalation due to heavy cross-border ballistic missile strikes targeting military infrastructure. A high-impact shock, though slightly less abrupt than the April naval crisis.
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-8.80</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.4 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-1.85 <span class="text-[10px]">pts/day</span></td>
+          </tr>
+
+          <!-- Benchmark 3 -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Feb 15, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Initial Regional Outbreak</strong>
+              The collapse of multi-party diplomatic negotiations and the first major mobilization of regional proxy forces, marking the official shift into war-time coverage.
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-8.20</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.1 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-1.50 <span class="text-[10px]">pts/day</span></td>
+          </tr>
+
+        </tbody>
+      </table>
     </div>
   </section>
 
   <!-- FOOTER -->
-  <footer class="text-xs text-gray-500 border-t border-ft pt-6 pb-12 font-sans text-center">
+  <footer class="text-xs text-gray-500 border-t border-ft pt-6 pb-12 font-sans text-center mt-8">
     <p>Data Source: GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of articles mentioning Iran.</p>
   </footer>
 </main>
@@ -139,7 +186,6 @@
   let fullHistoricalData = [];
   let currentActiveDays = '30';
 
-  // Format dates for display
   function formatDateLabel(isoStr) {
     if (!isoStr) return "";
     const d = new Date(isoStr);
@@ -186,7 +232,7 @@
           Evaluated against the <strong>${periodLabel}</strong> baseline, the current tone (<strong>${currentTone.toFixed(2)}</strong>) has breached the statistical danger threshold (-1 SD: ${lowerThreshold.toFixed(2)}). 
           Crucially, this collapse from the baseline mean occurred in just <strong>${daysToDrop} period points</strong>, representing an escalation velocity of <strong>-${velocity.toFixed(2)} pts/period</strong>. 
           <br><br>
-          <strong>Interpretation:</strong> This trajectory indicates an acute shock or flashpoint, with rapid deterioration in media tone.
+          <strong>Interpretation:</strong> This trajectory indicates an acute shock or flashpoint, with rapid deterioration in media tone. Compare these metrics against the Historical Benchmarks below to gauge severity.
         `;
       } else {
         statusLabel = "HIGH RISK: CHRONIC DETERIORATION";
@@ -195,7 +241,7 @@
           The current media tone (<strong>${currentTone.toFixed(2)}</strong>) sits deeply below the -1 SD threshold for the <strong>${periodLabel}</strong>. 
           Reaching this state took <strong>${daysToDrop || '>5'} periods</strong> at a slower pace of <strong>-${velocity.toFixed(2)} pts/period</strong>.
           <br><br>
-          <strong>Interpretation:</strong> Prolonged exposure at these depressed levels reflects persistent, structural geopolitical tension.
+          <strong>Interpretation:</strong> Prolonged exposure at these depressed levels reflects persistent, structural geopolitical tension rather than a sudden shock.
         `;
       }
     } else if (currentTone < mean && currentTone > lowerThreshold) {
@@ -243,7 +289,6 @@
       periodLabel = "War Total";
     } else {
       const count = parseInt(days);
-      // If data is hourly/dense, approx points or slice by days
       slicedData = fullHistoricalData.slice(-Math.min(fullHistoricalData.length, count * 4)); 
       periodLabel = days === '7' ? "7-Day" : "1 Month";
     }
@@ -336,24 +381,6 @@
     });
   }
 
-  function renderNews(articles) {
-    const container = document.getElementById('newsContainer');
-    if (!articles || articles.length === 0) {
-      container.innerHTML = '<p class="text-sm text-gray-400 py-4 font-sans">No recent articles found in cache.</p>';
-      return;
-    }
-
-    container.innerHTML = articles.map(news => `
-      <a href="${news.url}" target="_blank" rel="noopener" class="news-card block py-4 group">
-        <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-          <h3 class="text-lg group-hover:text-blue-700 transition-colors">${news.title}</h3>
-          <span class="text-xs text-gray-500 font-sans whitespace-nowrap">${formatDateLabel(news.date)}</span>
-        </div>
-        <div class="text-sm text-gray-600 mt-1">${news.domain || news.source || 'GDELT'}</div>
-      </a>
-    `).join('');
-  }
-
   // ==========================================
   // API FETCH: Connects to /api/geopolitical-data
   // ==========================================
@@ -369,19 +396,13 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Extract Iran's extended historical series (since start of war)
       fullHistoricalData = data.iranExtended14d || data.countries?.IRN || [];
-      
-      // Extract news articles
-      const articles = data.articles?.IRN || data.iranArticles || [];
       
       if (fullHistoricalData.length === 0) {
         throw new Error("No historical data available for Iran in cache.");
       }
 
-      // Render View
       updateView(currentActiveDays);
-      renderNews(articles);
 
       dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-ok";
       statusText.textContent = "Live";
@@ -390,16 +411,14 @@
       dot.className = "w-2 h-2 rounded-full bg-current status-error";
       statusText.textContent = "Cache Error";
       document.getElementById('derivativeAnalysis').innerHTML = 
-        `<span class="text-red-600">Error reading cached data: ${err.message}. Please click 'Refresh Data' or trigger backend ingestion.</span>`;
+        `<span class="text-red-600">Error reading cached data: ${err.message}. Please click 'Refresh Data'.</span>`;
     }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     loadData();
 
-    document.getElementById('refreshBtn').addEventListener('click', () => {
-      loadData();
-    });
+    document.getElementById('refreshBtn').addEventListener('click', loadData);
 
     const timeBtns = document.querySelectorAll('.time-btn[data-days]');
     timeBtns.forEach(btn => {
