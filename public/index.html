@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Boldozer — Iran Pilot (Monitoring & Alerts)</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
@@ -14,20 +15,17 @@
     background-color: #fff1e5;
     color: #111111;
   }
-  h1, h2, h3 {
+  h1, h2, h3, h4 {
     font-family: 'Playfair Display', 'Georgia', serif;
   }
-  .card {
-    background-color: #ffffff;
-    border: 1px solid #cccccc;
-    transition: all 0.15s ease;
+  .ft-border {
+    border: 1px solid #d4c5b9;
   }
-  .card:hover {
-    border-color: #999999;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  .ft-border-b {
+    border-bottom: 2px solid #111111;
   }
   .metric-box {
-    border-right: 1px solid #e5e5e5;
+    border-right: 1px solid #d4c5b9;
   }
   .metric-box:last-child {
     border-right: none;
@@ -44,52 +42,108 @@
   .status-loading { color: #b45309; }
   .status-ok      { color: #15803d; }
   .status-error   { color: #b91c1c; }
+  
+  /* Scrollbar for news */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #fff1e5; }
+  ::-webkit-scrollbar-thumb { background: #d4c5b9; }
+  ::-webkit-scrollbar-thumb:hover { background: #111111; }
 </style>
 </head>
-<body class="min-h-screen">
+<body class="min-h-screen flex flex-col">
 
 <!-- HEADER -->
-<header class="border-b-2 border-black bg-[#fff1e5] sticky top-0 z-20">
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5">
+<header class="ft-border-b bg-[#fff1e5] sticky top-0 z-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-black">Boldozer | Monitoring System</h1>
-        <p class="text-sm text-gray-700 mt-1 uppercase tracking-widest text-xs font-semibold font-sans">Step 4 Pilot: Islamic Republic of Iran</p>
+        <p class="text-sm text-gray-700 mt-1 uppercase tracking-widest text-[10px] font-semibold font-sans">Step 4 Pilot Scope: Islamic Republic of Iran</p>
       </div>
       <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
         <span id="statusBadge" class="flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-300 status-loading">
-          <span id="statusText">Loading...</span>
+          <span id="statusText">Initializing Connection...</span>
         </span>
         <span class="px-3 py-1 bg-white border border-gray-300">
-          Dashboard: <span id="lastUpdate" class="font-medium">—</span>
+          Dashboard Cache: <span id="lastUpdate" class="font-medium">—</span>
         </span>
         <span class="px-3 py-1 bg-white border border-gray-300">
-          GDELT Data: <span id="serverUpdate" class="font-medium">—</span>
+          GDELT Server: <span id="serverUpdate" class="font-medium">—</span>
         </span>
         <button id="refreshBtn" class="px-3 py-1 transition-colors">Refresh Cache</button>
-        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors">Fetch Live GDELT</button>
+        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors">Fetch Live Signals</button>
       </div>
     </div>
   </div>
 </header>
 
-<main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-  <div class="border-b border-gray-300 pb-2">
-    <h2 class="text-xl font-bold">Geopolitical Risk Watchlist</h2>
-    <p class="text-sm text-gray-600 mt-1">Real-time media sentiment and reputational risk monitoring. (AvgTone 7-day trailing).</p>
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-grow w-full">
+  
+  <div id="mainDashboard" class="hidden grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LEFT COLUMN: STATS & CHART -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <!-- TITLE & STATS -->
+      <div class="bg-white ft-border p-6 flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm">
+        <div>
+          <h2 class="text-3xl font-bold text-black">Iran</h2>
+          <span class="text-xs text-gray-500 uppercase tracking-widest font-sans mt-1 block">Middle East Region · ISO: IR</span>
+        </div>
+        
+        <div class="flex font-sans bg-gray-50 border border-gray-200">
+          <div class="metric-box px-6 py-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">Current Tone</div>
+            <div id="stat-today" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="metric-box px-6 py-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">7-Day Moving Avg</div>
+            <div id="stat-avg" class="text-2xl font-bold">—</div>
+          </div>
+          <div class="metric-box px-6 py-3 text-center">
+            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">Weekly Delta</div>
+            <div id="stat-delta" class="text-2xl font-bold">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHART CONTAINER -->
+      <div class="bg-white ft-border p-6 shadow-sm">
+        <div class="border-b border-gray-200 pb-3 mb-4">
+          <h3 class="text-lg font-bold">Reputational & Geopolitical Tone Trend</h3>
+          <p class="text-xs text-gray-500 font-sans mt-1">Live algorithmic sentiment evaluation based on global media volume.</p>
+        </div>
+        <div class="relative h-80 w-full">
+          <canvas id="toneChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: LIVE NEWS FEED -->
+    <div class="bg-white ft-border p-6 shadow-sm flex flex-col h-[600px]">
+      <div class="border-b border-gray-200 pb-3 mb-4 flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-bold">Live Alert Feed</h3>
+          <p class="text-xs text-gray-500 font-sans mt-1">Latest critical developments</p>
+        </div>
+        <div class="h-2 w-2 bg-red-600 rounded-full animate-pulse"></div>
+      </div>
+      
+      <div id="newsFeed" class="flex-col overflow-y-auto pr-3 space-y-4 flex-grow">
+        <p class="text-sm text-gray-500 font-sans text-center mt-10">Loading media coverage...</p>
+      </div>
+    </div>
+
   </div>
-
-  <!-- COUNTRY GRID -->
-  <section>
-    <div id="countryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="text-xs text-gray-500 border-t border-gray-300 pt-6 pb-12 space-y-2 mt-12 font-sans">
-    <p><strong class="text-gray-700">Data Source:</strong> GDELT Project 2.0 DOC API — endpoints <code>mode=timelinetone</code> and <code>mode=artlist</code>. AvgTone is calculated as the average lexical sentiment of all articles mentioning the entity in the queried period. Theoretical range [-100, +100]; practical operating window between -10 and +10.</p>
-    <p><strong class="text-gray-700">Architecture:</strong> A <em>Netlify Scheduled Function</em> (<code>fetch-gdelt-scheduled</code>) queries GDELT on rotation and saves the output to <em>Netlify Blobs</em>. The browser client exclusively requests <code>/api/geopolitical-data</code> (shared cache).</p>
-  </footer>
 </main>
+
+<footer class="ft-border-t bg-[#fff1e5] py-8 mt-auto">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 text-[11px] text-gray-500 space-y-2 font-sans">
+    <p><strong class="text-gray-700">Data Source:</strong> GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of all articles mentioning the entity. Theoretical range [-100, +100]; practical operating window between -10 and +10.</p>
+    <p><strong class="text-gray-700">Architecture:</strong> Internal server cache querying GDELT on rotation via scheduled functions. Browser client exclusively requests unified geopolitical payload.</p>
+  </div>
+</footer>
 
 <script type="module">
 import {
@@ -97,58 +151,115 @@ import {
   loadPanelData, fetchTaskList, runTask, sleep, API_URL,
 } from "./app.js";
 
+let chartInstance = null;
 const state = { meta: [], countries: {}, lastUpdate: null, updatedAtServer: null, timer: null };
 
-// ================= RENDER: STRICTLY IRAN =================
-function renderCountryGrid() {
-  // Filtro estricto por código ISO para evitar falsos positivos
-  let data = state.meta
-    .filter((c) => c.code === "IR")
-    .map((c) => ({ ...c, ...state.countries[c.code] }));
+// ================= RENDER IRAN DASHBOARD =================
+function renderDashboard() {
+  const iranMeta = state.meta.find((c) => c.code === "IR");
+  if (!iranMeta) return; // Espera a que los datos existan
 
-  document.getElementById("countryGrid").innerHTML = data.map((c) => {
-    // Traducción al vuelo de datos que vengan de app.js en español
-    const englishName = c.name.toLowerCase().includes("ir") ? "Iran" : escapeHtml(c.name);
-    const englishRegion = c.region === "Oriente Medio" ? "Middle East" : escapeHtml(c.region);
+  const c = { ...iranMeta, ...state.countries["IR"] };
+  document.getElementById("mainDashboard").classList.remove("hidden");
+  document.getElementById("mainDashboard").classList.add("grid");
 
-    return `
-      <a class="card p-6 flex flex-col gap-5" href="pais.html?code=${encodeURIComponent(c.code)}"
-         target="_blank" rel="noopener" title="Open full dossier for ${englishName}">
-        <div class="flex items-start justify-between border-b border-gray-200 pb-3">
-          <div>
-            <h3 class="text-2xl font-bold text-black">${englishName}</h3>
-            <span class="text-xs text-gray-500 uppercase tracking-wider font-sans">${englishRegion} · ISO: ${escapeHtml(c.code)}</span>
-          </div>
-          ${c.error ? `<span class="text-xs text-red-700 font-sans border border-red-200 px-2 py-1 bg-red-50">No Data</span>`
-                    : `<span class="text-xs text-gray-600 font-sans px-2 py-1 bg-gray-100 border border-gray-200">Last 7 Days</span>`}
-        </div>
+  // 1. STATS
+  const elToday = document.getElementById('stat-today');
+  elToday.textContent = fmt(c.last, 1);
+  elToday.style.color = toneColor(c.last);
 
-        <div class="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50 font-sans">
-          <div class="metric-box p-3 text-center">
-            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Today</div>
-            <div class="text-xl font-semibold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
-          </div>
-          <div class="metric-box p-3 text-center">
-            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">7d Avg</div>
-            <div class="text-xl font-semibold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
-          </div>
-          <div class="metric-box p-3 text-center">
-            <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Weekly Δ</div>
-            <div class="text-xl font-semibold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a"}">${fmt(c.delta7d, 1)}</div>
-          </div>
-        </div>
+  const elAvg = document.getElementById('stat-avg');
+  elAvg.textContent = fmt(c.avg7d, 1);
+  elAvg.style.color = toneColor(c.avg7d);
 
-        <div class="text-xs text-blue-700 font-sans font-medium text-right hover:underline">
-          View full chart and news &rarr;
-        </div>
-      </a>
-    `;
-  }).join("");
+  const elDelta = document.getElementById('stat-delta');
+  elDelta.textContent = fmt(c.delta7d, 1);
+  elDelta.style.color = c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a";
+
+  // 2. CHART (Asume que los datos están en c.series o c.timeline)
+  const seriesData = c.series || c.timeline || [];
+  if (seriesData.length > 0) {
+    const ctx = document.getElementById('toneChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    const labels = seriesData.map(s => {
+      // Intenta parsear fechas de GDELT (YYYYMMDDHHMMSS)
+      let dStr = s.date || s.time || "";
+      if (typeof dStr === 'string' && dStr.length >= 14) {
+        return `${dStr.substring(4,6)}/${dStr.substring(6,8)} ${dStr.substring(8,10)}:00`;
+      }
+      return new Date(dStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    
+    const values = seriesData.map(s => s.value || s.tone || 0);
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Media Tone',
+          data: values,
+          borderColor: '#111111',
+          backgroundColor: 'rgba(17, 17, 17, 0.05)',
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { grid: { color: '#e5e5e5' }, ticks: { color: '#555', font: { family: 'sans-serif' } } },
+          x: { grid: { display: false }, ticks: { color: '#555', maxTicksLimit: 7, font: { family: 'sans-serif' } } }
+        },
+        plugins: { 
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#ffffff',
+            titleColor: '#111111',
+            bodyColor: '#555555',
+            borderColor: '#cccccc',
+            borderWidth: 1,
+            titleFont: { family: 'sans-serif' },
+            bodyFont: { family: 'sans-serif' }
+          }
+        }
+      }
+    });
+  }
+
+  // 3. NEWS FEED (Asume que los datos están en c.articles o c.news)
+  const newsData = c.articles || c.news || [];
+  const feedContainer = document.getElementById('newsFeed');
+  
+  if (newsData.length > 0) {
+    feedContainer.innerHTML = newsData.map(art => {
+      let domain = art.domain || art.source || "News Source";
+      if (!domain && art.url) {
+        try { domain = new URL(art.url).hostname.replace('www.', ''); } catch(e){}
+      }
+      const title = art.title || "No Title Provided";
+      const link = art.url || "#";
+      
+      return `
+        <a href="${escapeHtml(link)}" target="_blank" class="block py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors px-2 -mx-2">
+          <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-sans font-semibold text-blue-900">${escapeHtml(domain)}</div>
+          <h4 class="text-sm font-semibold text-black leading-snug">${escapeHtml(title)}</h4>
+        </a>
+      `;
+    }).join("");
+  } else {
+    feedContainer.innerHTML = '<p class="text-sm text-gray-500 font-sans text-center mt-10">No critical alerts in current window.</p>';
+  }
 }
 
 // ================= LOAD SYSTEM =================
 async function loadAll() {
-  setStatus("loading", "Reading cache...");
+  setStatus("loading", "Reading internal cache...");
   const startedAt = Date.now();
   try {
     const d = await loadPanelData();
@@ -156,20 +267,21 @@ async function loadAll() {
     state.countries = d.countries;
     state.updatedAtServer = d.updatedAtServer;
     state.lastUpdate = new Date();
-    renderCountryGrid();
-
-    const failed = Object.values(state.countries).filter((c) => c.error).length;
-    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
     
-    if (state.meta.length > 0 && failed === state.meta.length) {
+    renderDashboard();
+
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+    const hasIranError = state.countries["IR"]?.error;
+    
+    if (state.meta.length === 0) {
       setStatus("error", `Cache empty — ${elapsed}s`);
-    } else if (failed > 0) {
-      setStatus("ok", `Active (${failed} background tasks pending) — ${elapsed}s`);
+    } else if (hasIranError) {
+      setStatus("error", `API Warning: Iran data missing — ${elapsed}s`);
     } else {
-      setStatus("ok", `Active — ${elapsed}s`);
+      setStatus("ok", `System Active — ${elapsed}s`);
     }
   } catch (e) {
-    setStatus("error", `API Error: ${e.message}`);
+    setStatus("error", `API Connection Error`);
   }
 
   document.getElementById("lastUpdate").textContent = fmtTime(state.lastUpdate || new Date());
@@ -194,7 +306,7 @@ async function triggerFetch() {
   const btn = document.getElementById("triggerFetchBtn");
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "Preparing...";
+  btn.textContent = "Processing Request...";
 
   try {
     const tasks = await fetchTaskList();
@@ -207,9 +319,8 @@ async function triggerFetch() {
           .filter(([, at]) => new Date(at).getTime() > cutoff)
           .map(([id]) => id)
       );
-    } catch { /* no cache yet */ }
+    } catch {}
     
-    // Filtro para enfocar la recarga en Irán
     const pending = tasks.filter((t) => !freshIds.has(t.id) && (t.id.includes('IR') || t.id.includes('iran')));
 
     if (pending.length === 0) {
@@ -220,18 +331,18 @@ async function triggerFetch() {
 
     let failed = [];
     for (let i = 0; i < pending.length; i++) {
-      btn.textContent = `Fetching Iran... ${i + 1}/${pending.length}`;
+      btn.textContent = `Fetching Signals... ${i + 1}/${pending.length}`;
       try {
         if (!(await runTask(pending[i]))) failed.push(pending[i]);
       } catch { failed.push(pending[i]); }
       loadAll(); 
-      if (i < pending.length - 1) await sleep(7000);
+      if (i < pending.length - 1) await sleep(5000);
     }
 
-    btn.textContent = failed.length ? `Update failed` : "Data successfully loaded";
+    btn.textContent = failed.length ? `Update Interrupted` : "Data Successfully Loaded";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
   } catch (e) {
-    btn.textContent = "Error: " + e.message;
+    btn.textContent = "System Error";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 4000);
   }
 }
