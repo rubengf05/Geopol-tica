@@ -1,271 +1,172 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boldozer — Iran Pilot (Monitoring & Alerts)</title>
+<title>Panel Geopolítico Global — Live (GDELT)</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   body {
-    font-family: 'Source Serif Pro', 'Georgia', serif;
-    background-color: #fff1e5;
-    color: #111111;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #070d1b;
+  color: #dbe4f3;
   }
-  h1, h2, h3, h4 {
-    font-family: 'Playfair Display', 'Georgia', serif;
-  }
-  .ft-border { border: 1px solid #d4c5b9; }
-  .ft-border-b { border-bottom: 2px solid #111111; }
-  button {
-    background-color: #ffffff;
-    border: 1px solid #cccccc;
-    color: #333333;
-    font-family: sans-serif;
-  }
-  button:hover { border-color: #111111; background-color: #f9f9f9; }
-  .status-loading { color: #b45309; }
-  .status-ok      { color: #15803d; }
-  .status-error   { color: #b91c1c; }
-  
-  /* Scrollbar for news */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: #f9f9f9; }
-  ::-webkit-scrollbar-thumb { background: #d4c5b9; }
-  ::-webkit-scrollbar-thumb:hover { background: #111111; }
+  .card { background:#0d1525; border:1px solid #1e2d47; transition: all .15s ease; }
+  .card:hover { border-color:#33507a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  a.card { display:block; text-decoration:none; color:inherit; }
+  a.card:hover .go { color:#93c5fd; }
+  .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .status-loading { color:#fbbf24; }
+  .status-ok      { color:#34d399; }
+  .status-error   { color:#f87171; }
+  select, input, button { background:#0a1120; border:1px solid #1e2d47; color:#dbe4f3; }
+  button:hover { border-color:#3b6fd6; }
 </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen">
 
 <!-- HEADER -->
-<header class="ft-border-b bg-[#fff1e5] sticky top-0 z-20">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-    <div class="flex flex-wrap items-end justify-between gap-4">
+<header class="border-b border-[#1e2d47] bg-[#070d1b]/95 sticky top-0 z-20 backdrop-blur">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-black">Boldozer | Monitoring System</h1>
-        <p class="text-sm text-gray-700 mt-1 uppercase tracking-widest text-[10px] font-semibold font-sans">Step 4 Pilot Scope: Islamic Republic of Iran</p>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">🌍 Panel Geopolítico Global — LIVE</h1>
+        <p class="text-xs text-slate-400 mt-1">Tono mediático de 13 focos de Oriente Medio y actores clave · Datos <a class="text-sky-300" href="https://www.gdeltproject.org/" target="_blank" rel="noopener">GDELT 2.0</a></p>
       </div>
-      <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
-        <span id="statusBadge" class="flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-300 status-loading">
-          <span id="statusText">Connecting to local server...</span>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47] status-loading">
+          <span class="w-1.5 h-1.5 rounded-full bg-current pulse-dot"></span> <span id="statusText">Cargando…</span>
         </span>
-        <span class="px-3 py-1 bg-white border border-gray-300">
-          Cache: <span id="lastUpdate" class="font-medium">—</span>
+        <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
+          Panel: <span id="lastUpdate" class="text-slate-300">—</span>
         </span>
-        <button id="refreshBtn" class="px-3 py-1 transition-colors cursor-pointer">Refresh Cache</button>
-        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors cursor-pointer">Fetch Live GDELT</button>
+        <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
+          Datos GDELT: <span id="serverUpdate" class="text-slate-300">—</span>
+        </span>
+        <button id="refreshBtn" class="px-3 py-1 rounded-full text-xs">🔄 Refrescar caché</button>
+        <button id="triggerFetchBtn" class="px-3 py-1 rounded-full text-xs">⚡ Cargar GDELT ahora</button>
       </div>
     </div>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex-grow w-full">
-  
-  <!-- DASHBOARD CONTAINER (Hidden until data loads) -->
-  <div id="iranDashboard" class="hidden grid-cols-1 lg:grid-cols-3 gap-8">
-    
-    <!-- LEFT COLUMN: STATS & CHART -->
-    <div class="lg:col-span-2 space-y-6">
-      
-      <!-- STATS & ALERT SIGNAL -->
-      <div class="bg-white ft-border p-6 shadow-sm">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-6">
-          <div>
-            <h2 class="text-3xl font-bold text-black">Iran</h2>
-            <span class="text-xs text-gray-500 uppercase tracking-widest font-sans mt-1 block">Middle East Region · ISO: IR</span>
-          </div>
-          
-          <div class="flex font-sans border border-gray-200 bg-gray-50 divide-x divide-gray-200">
-            <div class="px-6 py-3 text-center">
-              <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">Today's Tone</div>
-              <div id="stat-today" class="text-2xl font-bold">—</div>
-            </div>
-            <div class="px-6 py-3 text-center">
-              <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">7d Trailing Avg</div>
-              <div id="stat-avg" class="text-2xl font-bold">—</div>
-            </div>
-            <div class="px-6 py-3 text-center">
-              <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide font-semibold">Weekly Delta</div>
-              <div id="stat-delta" class="text-2xl font-bold">—</div>
-            </div>
-          </div>
-        </div>
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
-        <!-- RISK ALERT SIGNAL -->
-        <div id="riskAlertContainer" class="px-4 py-3 bg-gray-50 border border-gray-200 text-sm font-sans text-gray-700">
-          <!-- Populated by JS -->
-        </div>
-      </div>
-
-      <!-- CHART CONTAINER -->
-      <div class="bg-white ft-border p-6 shadow-sm">
-        <div class="border-b border-gray-200 pb-3 mb-4">
-          <h3 class="text-lg font-bold">Reputational & Geopolitical Tone Trend</h3>
-          <p class="text-xs text-gray-500 font-sans mt-1">Live algorithmic sentiment evaluation based on global media volume over the last 7 days.</p>
-        </div>
-        <div class="relative h-80 w-full">
-          <canvas id="toneChart"></canvas>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- RIGHT COLUMN: LIVE NEWS FEED -->
-    <div class="bg-white ft-border p-6 shadow-sm flex flex-col h-full min-h-[500px] max-h-[700px]">
-      <div class="border-b border-gray-200 pb-3 mb-4">
-        <h3 class="text-lg font-bold">Live Alert Feed</h3>
-        <p class="text-xs text-gray-500 font-sans mt-1">Latest critical media developments</p>
-      </div>
-      
-      <div id="newsFeed" class="flex-col overflow-y-auto pr-3 space-y-4 flex-grow">
-        <!-- Populated by JS -->
-        <p class="text-sm text-gray-500 font-sans text-center mt-10">Waiting for media coverage data...</p>
-      </div>
-    </div>
-
+  <!-- CONTROLS -->
+  <div class="flex flex-wrap gap-3 items-center">
+    <input id="searchBox" type="text" placeholder="🔎 Buscar país..." class="rounded-md px-3 py-2 text-sm w-48">
+    <select id="regionFilter" class="rounded-md px-3 py-2 text-sm">
+      <option value="all">Todas las regiones</option>
+      <option value="Oriente Medio">Oriente Medio</option>
+      <option value="América">América</option>
+    </select>
+    <select id="riskFilter" class="rounded-md px-3 py-2 text-sm">
+      <option value="all">Todos</option>
+      <option value="top5"> Top 5 más críticos</option>
+      <option value="top10"> Top 10 más críticos</option>
+    </select>
+    <select id="sortBy" class="rounded-md px-3 py-2 text-sm">
+      <option value="risk">Ordenar: Mayor riesgo primero</option>
+      <option value="riskAsc">Ordenar: Menor riesgo primero</option>
+      <option value="delta">Ordenar: Mayor cambio semanal (peor)</option>
+      <option value="alpha">Ordenar: Alfabético</option>
+    </select>
+    <span class="text-xs text-slate-500 ml-auto" id="countLabel">13 países</span>
   </div>
+
+  <!-- COUNTRY GRID -->
+  <section>
+    <div class="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
+      <h2 class="text-sm font-semibold text-slate-300">🗺️ Estado geopolítico — Oriente Medio y actores clave (AvgTone últimos 7 días · GDELT)</h2>
+      <p class="text-[11px] text-slate-500">Pulsa un país para abrir su ficha: gráfico completo y titulares.</p>
+    </div>
+    <div id="countryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1">
+    <p><strong class="text-slate-400">Fuente de datos:</strong> GDELT Project 2.0 DOC API — endpoints <code class="text-slate-400">mode=timelinetone</code> y <code class="text-slate-400">mode=artlist</code>. AvgTone se calcula como la media del sentimiento léxico de todos los artículos que mencionan al país en el período consultado. Rango teórico [-100, +100]; la ventana operativa práctica está entre -10 y +10.</p>
+    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación (2 consultas cada 3 min — GDELT limita a 1 petición cada 5 s) y guarda el resultado en <em>Netlify Blobs</em>. Son 27 tareas (13 series + histórico largo de Irán + 13 bloques de titulares), así que el panel entero se refresca en ~40 min. El navegador solo llama a <code class="text-slate-400">/api/geopolitical-data</code> (la caché compartida — todos ven el mismo dato).</p>
+    <p><strong class="text-slate-400">Metodología del "riesgo":</strong> el orden y los filtros "Top N más críticos" se calculan sobre el AvgTone medio de los últimos 7 días (más negativo = mayor riesgo). El delta semanal compara la media de los últimos 7 días con la de los 7 anteriores.</p>
+  </footer>
 </main>
 
-<footer class="ft-border-t bg-[#fff1e5] py-8 mt-auto">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 text-[11px] text-gray-500 space-y-2 font-sans">
-    <p><strong class="text-gray-700">Data Source:</strong> GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of all articles mentioning the entity. Theoretical range [-100, +100]; practical operating window between -10 and +10.</p>
-    <p><strong class="text-gray-700">Architecture:</strong> Internal server cache querying GDELT on rotation via Netlify scheduled functions. Browser client exclusively requests unified geopolitical payload.</p>
-  </div>
-</footer>
-
 <script type="module">
-// IMPORTACIONES EXACTAS DE TU CÓDIGO ORIGINAL
 import {
   REFRESH_MS, toneColor, fmt, fmtDate, fmtTime, escapeHtml,
   loadPanelData, fetchTaskList, runTask, sleep, API_URL,
 } from "./app.js";
 
-let chartInstance = null;
 const state = { meta: [], countries: {}, lastUpdate: null, updatedAtServer: null, timer: null };
 
-// ================= RENDER IRAN DASHBOARD =================
-function renderDashboard() {
-  // Filtramos exclusivamente Irán de tu meta
-  const cMeta = state.meta.find((c) => c.code === "IR");
-  if (!cMeta) return; 
+// ================= RENDER: REJILLA DE PAÍSES =================
+// Sin gráficos aquí: cada tarjeta es un enlace a su ficha (pais.html), que se
+// abre en una pestaña nueva con el gráfico grande y los titulares del país.
+function renderCountryGrid() {
+  const search = document.getElementById("searchBox").value.trim().toLowerCase();
+  const region = document.getElementById("regionFilter").value;
+  const riskFilter = document.getElementById("riskFilter").value;
+  const sortBy = document.getElementById("sortBy").value;
 
-  // Combinamos la meta con los datos de ese país (igual que hacías en el grid)
-  const c = { ...cMeta, ...state.countries["IR"] };
-  
-  // Mostramos el contenedor
-  document.getElementById("iranDashboard").classList.remove("hidden");
-  document.getElementById("iranDashboard").classList.add("grid");
+  let data = state.meta.filter((c) =>
+    (region === "all" || c.region === region) &&
+    (c.name.toLowerCase().includes(search) || c.code.toLowerCase().includes(search))
+  ).map((c) => ({ ...c, ...state.countries[c.code] }));
 
-  // --- 1. METRICS ---
-  const elToday = document.getElementById('stat-today');
-  elToday.textContent = fmt(c.last, 1);
-  elToday.style.color = toneColor(c.last);
-
-  const elAvg = document.getElementById('stat-avg');
-  elAvg.textContent = fmt(c.avg7d, 1);
-  elAvg.style.color = toneColor(c.avg7d);
-
-  const elDelta = document.getElementById('stat-delta');
-  elDelta.textContent = fmt(c.delta7d, 1);
-  elDelta.style.color = c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a";
-
-  // --- 2. RISK ALERT SIGNAL ---
-  const alertContainer = document.getElementById('riskAlertContainer');
-  if (c.delta7d !== null && c.delta7d !== undefined) {
-    if (c.delta7d <= -1.5) {
-      alertContainer.innerHTML = `<span class="text-red-700 font-bold">Signal Alert:</span> High negative standard deviation detected. Tone dropped by <strong>${fmt(c.delta7d, 1)} points</strong> vs prior week, indicating elevated immediate risk.`;
-      alertContainer.className = "px-4 py-3 bg-red-50 border border-red-200 text-sm font-sans text-red-900";
-    } else if (c.delta7d >= 1.5) {
-      alertContainer.innerHTML = `<span class="text-green-700 font-bold">Signal Alert:</span> Positive standard deviation. Tone improved by <strong>${fmt(c.delta7d, 1)} points</strong> week-over-week.`;
-      alertContainer.className = "px-4 py-3 bg-green-50 border border-green-200 text-sm font-sans text-green-900";
-    } else {
-      alertContainer.innerHTML = `<span class="text-gray-700 font-bold">Monitoring Status:</span> Standard deviation remains within typical baseline thresholds (${fmt(c.delta7d, 1)} weekly variance).`;
-      alertContainer.className = "px-4 py-3 bg-gray-50 border border-gray-200 text-sm font-sans text-gray-700";
-    }
+  if (riskFilter === "top5" || riskFilter === "top10") {
+    const n = riskFilter === "top5" ? 5 : 10;
+    data = [...data].sort((a, b) => (a.avg7d ?? 99) - (b.avg7d ?? 99)).slice(0, n);
   }
 
-  // --- 3. CHART ---
-  // Busca las series de tu backend (suele ser c.series o c.timeline)
-  const seriesData = c.series || c.timeline || [];
-  if (seriesData.length > 0) {
-    const ctx = document.getElementById('toneChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
+  if (sortBy === "risk") data.sort((a, b) => (a.avg7d ?? 99) - (b.avg7d ?? 99));
+  else if (sortBy === "riskAsc") data.sort((a, b) => (b.avg7d ?? -99) - (a.avg7d ?? -99));
+  else if (sortBy === "delta") data.sort((a, b) => (a.delta7d ?? 99) - (b.delta7d ?? 99));
+  else if (sortBy === "alpha") data.sort((a, b) => a.name.localeCompare(b.name));
 
-    const labels = seriesData.map(s => {
-      let dStr = s.date || s.time || "";
-      if (typeof dStr === 'string' && dStr.length >= 14) {
-        return `${dStr.substring(4,6)}/${dStr.substring(6,8)} ${dStr.substring(8,10)}:00`;
-      }
-      return new Date(dStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-    const values = seriesData.map(s => s.value || s.tone || 0);
+  document.getElementById("countLabel").textContent = `${data.length} país${data.length === 1 ? "" : "es"}`;
 
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Media Tone',
-          data: values,
-          borderColor: '#111111',
-          backgroundColor: 'rgba(17, 17, 17, 0.05)',
-          borderWidth: 1.5,
-          fill: true,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          tension: 0.1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: { grid: { color: '#e5e5e5' }, ticks: { color: '#555', font: { family: 'sans-serif' } } },
-          x: { grid: { display: false }, ticks: { color: '#555', maxTicksLimit: 7, font: { family: 'sans-serif' } } }
-        },
-        plugins: { 
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: '#ffffff', titleColor: '#111111', bodyColor: '#555555',
-            borderColor: '#cccccc', borderWidth: 1, titleFont: { family: 'sans-serif' }, bodyFont: { family: 'sans-serif' }
-          }
-        }
-      }
-    });
-  }
+  document.getElementById("countryGrid").innerHTML = data.map((c) => `
+    <a class="card rounded-lg p-4 flex flex-col gap-3" href="pais.html?code=${encodeURIComponent(c.code)}"
+       target="_blank" rel="noopener" title="Abrir la ficha de ${escapeHtml(c.name)} en una pestaña nueva">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl">${c.flag}</span>
+            <span class="font-semibold text-white">${escapeHtml(c.name)}</span>
+          </div>
+          <span class="text-[10px] text-slate-500">${escapeHtml(c.region)} · ${escapeHtml(c.code)}</span>
+        </div>
+        ${c.error ? `<span class="text-[10px] text-red-300">⚠ sin dato</span>`
+                  : `<span class="text-[10px] text-slate-500">últimos 7 días</span>`}
+      </div>
 
-  // --- 4. NEWS FEED ---
-  // Busca las noticias de tu backend (suele ser c.articles o c.news)
-  const newsData = c.articles || c.news || [];
-  const feedContainer = document.getElementById('newsFeed');
-  
-  if (newsData.length > 0) {
-    feedContainer.innerHTML = newsData.map(art => {
-      let domain = art.domain || art.source || "News Source";
-      if (!domain && art.url) {
-        try { domain = new URL(art.url).hostname.replace('www.', ''); } catch(e){}
-      }
-      const title = art.title || "No Title Provided";
-      const link = art.url || "#";
-      
-      return `
-        <a href="${escapeHtml(link)}" target="_blank" class="block py-3 border-b border-gray-200 hover:bg-gray-50 transition-colors px-2 -mx-2">
-          <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1 font-sans font-semibold">${escapeHtml(domain)}</div>
-          <h4 class="text-sm font-semibold text-black leading-snug">${escapeHtml(title)}</h4>
-        </a>
-      `;
-    }).join("");
-  } else {
-    feedContainer.innerHTML = '<p class="text-sm text-gray-500 font-sans text-center mt-10">No alerts in the current window.</p>';
-  }
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="rounded-md bg-[#1a2338] py-2">
+          <div class="text-[10px] text-slate-500">Hoy</div>
+          <div class="text-lg font-bold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
+        </div>
+        <div class="rounded-md bg-[#1a2338] py-2">
+          <div class="text-[10px] text-slate-500">Media 7d</div>
+          <div class="text-lg font-bold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
+        </div>
+        <div class="rounded-md bg-[#1a2338] py-2">
+          <div class="text-[10px] text-slate-500">Δ semana</div>
+          <div class="text-lg font-bold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#64748b" : c.delta7d < 0 ? "#f87171" : "#34d399"}">${fmt(c.delta7d, 1)}</div>
+        </div>
+      </div>
+
+      <div class="go text-[11px] text-slate-500 flex items-center justify-end gap-1">Ver gráfico y noticias ↗</div>
+    </a>
+  `).join("");
 }
 
-// ================= LOAD SYSTEM (TU LÓGICA ORIGINAL) =================
+// ================= CARGA =================
 async function loadAll() {
-  setStatus("loading", "Reading cache...");
+  setStatus("loading", "Leyendo caché…");
   const startedAt = Date.now();
   try {
     const d = await loadPanelData();
@@ -273,20 +174,19 @@ async function loadAll() {
     state.countries = d.countries;
     state.updatedAtServer = d.updatedAtServer;
     state.lastUpdate = new Date();
-    
-    renderDashboard();
+    renderCountryGrid();
 
+    const failed = Object.values(state.countries).filter((c) => c.error).length;
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    const hasIranError = state.countries["IR"]?.error;
-    
-    if (state.meta.length === 0) setStatus("error", `Cache empty — ${elapsed}s`);
-    else if (hasIranError) setStatus("error", `API Warning: Data missing — ${elapsed}s`);
-    else setStatus("ok", `System Active — ${elapsed}s`);
+    if (state.meta.length > 0 && failed === state.meta.length) setStatus("error", `Sin datos en la caché — ${elapsed}s`);
+    else if (failed > 0) setStatus("ok", `${state.meta.length - failed}/${state.meta.length} países OK (${failed} sin dato) — ${elapsed}s`);
+    else setStatus("ok", `OK — ${elapsed}s`);
   } catch (e) {
-    setStatus("error", `API Connection Error`);
+    setStatus("error", `Error leyendo /api/geopolitical-data: ${e.message}`);
   }
 
   document.getElementById("lastUpdate").textContent = fmtTime(state.lastUpdate || new Date());
+  document.getElementById("serverUpdate").textContent = state.updatedAtServer ? `${fmtTime(state.updatedAtServer)} ${fmtDate(state.updatedAtServer)}` : "—";
   scheduleNext();
 }
 
@@ -302,15 +202,19 @@ function scheduleNext() {
   state.timer = setTimeout(() => loadAll(), REFRESH_MS);
 }
 
-// ================= MANUAL FETCH =================
+// ================= CARGA MANUAL DE GDELT =================
+// Son 27 consultas espaciadas ~7 s (el rate limit de GDELT es de 1 cada 5 s),
+// así que la pasada completa tarda ~3 min. Se saltan las tareas refrescadas
+// hace menos de 15 min para no gastar cuota en lo que ya está al día.
 async function triggerFetch() {
   const btn = document.getElementById("triggerFetchBtn");
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "Processing...";
+  btn.textContent = "⏳ Preparando…";
 
   try {
     const tasks = await fetchTaskList();
+
     let freshIds = new Set();
     try {
       const cur = await (await fetch(API_URL, { cache: "no-store" })).json();
@@ -320,38 +224,55 @@ async function triggerFetch() {
           .filter(([, at]) => new Date(at).getTime() > cutoff)
           .map(([id]) => id)
       );
-    } catch {}
-    
+    } catch { /* sin caché aún: se cargan todas */ }
     const pending = tasks.filter((t) => !freshIds.has(t.id));
 
     if (pending.length === 0) {
-      btn.textContent = "Up to date";
+      btn.textContent = "Todo al día";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
       return;
     }
 
     let failed = [];
     for (let i = 0; i < pending.length; i++) {
-      btn.textContent = `Fetching... ${i + 1}/${pending.length}`;
+      btn.textContent = `⏳ Cargando GDELT… ${i + 1}/${pending.length}`;
       try {
         if (!(await runTask(pending[i]))) failed.push(pending[i]);
       } catch { failed.push(pending[i]); }
-      loadAll(); 
-      if (i < pending.length - 1) await sleep(7000); // 7s rate limit
+      loadAll(); // el panel se va rellenando según llegan los datos
+      if (i < pending.length - 1) await sleep(7000);
     }
 
-    btn.textContent = failed.length ? `Update Interrupted` : "Loaded";
+    // Reintento único de las que fallaron (GDELT a veces da un 429 puntual)
+    if (failed.length) {
+      const retry = failed;
+      failed = [];
+      for (let i = 0; i < retry.length; i++) {
+        btn.textContent = `⏳ Reintentando… ${i + 1}/${retry.length}`;
+        await sleep(8000);
+        try {
+          if (!(await runTask(retry[i]))) failed.push(retry[i]);
+        } catch { failed.push(retry[i]); }
+      }
+    }
+
+    btn.textContent = failed.length ? `${failed.length} consulta(s) sin dato` : "Datos cargados";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
   } catch (e) {
-    btn.textContent = "Error";
+    btn.textContent = " Error: " + e.message;
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 4000);
   }
 }
 
 // ================= INIT =================
+document.getElementById("searchBox").addEventListener("input", renderCountryGrid);
+document.getElementById("regionFilter").addEventListener("change", renderCountryGrid);
+document.getElementById("riskFilter").addEventListener("change", renderCountryGrid);
+document.getElementById("sortBy").addEventListener("change", renderCountryGrid);
 document.getElementById("refreshBtn").addEventListener("click", () => loadAll());
 document.getElementById("triggerFetchBtn").addEventListener("click", triggerFetch);
 
+renderCountryGrid();
 loadAll();
 </script>
 </body>
