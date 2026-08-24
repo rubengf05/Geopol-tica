@@ -92,7 +92,6 @@
       </div>
     </div>
     
-    <!-- Chart Container -->
     <div class="w-full bg-white border border-ft p-4 sm:p-6 rounded-sm shadow-sm mb-6 min-h-[220px] flex items-center justify-center">
       <canvas id="iranChart" height="120"></canvas>
     </div>
@@ -105,7 +104,6 @@
           CALCULATING…
         </span>
       </div>
-      
       <div id="derivativeAnalysis" class="leading-relaxed text-[15px]">
         Loading geopolitical data from cache…
       </div>
@@ -115,9 +113,9 @@
   <!-- STATIC HISTORICAL BENCHMARKS SECTION -->
   <section>
     <div class="mb-4 border-b border-black pb-2 mt-4">
-      <h2 class="text-xl">Historical Extremes & Benchmark Events</h2>
+      <h2 class="text-xl">Historical Extremes & Benchmark Events (Since Feb 2026)</h2>
       <p class="text-sm text-gray-500 mt-1 italic">
-        Key moments of severe geopolitical stress since the outbreak of the conflict (Feb 2026). Use these metrics to benchmark current escalation velocities and sentiment collapses.
+        A reference catalogue of severe escalations and diplomatic breakthroughs. Use these 7 key events to benchmark current media tone velocity and standard deviation breaches.
       </p>
     </div>
     
@@ -127,47 +125,102 @@
           <tr>
             <th class="py-3 px-2 font-semibold">Date</th>
             <th class="py-3 px-2 font-semibold">Event Catalyst & Context</th>
-            <th class="py-3 px-2 font-semibold text-right">Min Tone</th>
-            <th class="py-3 px-2 font-semibold text-right">Dev (SD)</th>
-            <th class="py-3 px-2 font-semibold text-right">Velocity</th>
+            <th class="py-3 px-2 font-semibold text-right whitespace-nowrap">Extreme Tone</th>
+            <th class="py-3 px-2 font-semibold text-right whitespace-nowrap">Dev (SD)</th>
+            <th class="py-3 px-2 font-semibold text-right whitespace-nowrap">Velocity</th>
           </tr>
         </thead>
         <tbody class="divide-y border-ft border-b border-black">
           
-          <!-- Benchmark 1 -->
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Apr 12, 2026</td>
-            <td class="py-4 px-2">
-              <strong class="font-serif text-base text-black block mb-0.5">Strait of Hormuz Naval Clash</strong>
-              War escalation due to the interception of commercial vessels, leading to direct naval skirmishes and airspace closures. This represents the fastest deterioration in media tone on record.
-            </td>
-            <td class="py-4 px-2 text-right font-bold text-red-700">-9.50</td>
-            <td class="py-4 px-2 text-right text-gray-600">-3.8 SD</td>
-            <td class="py-4 px-2 text-right text-gray-600">-2.20 <span class="text-[10px]">pts/day</span></td>
-          </tr>
-
-          <!-- Benchmark 2 -->
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Jul 04, 2026</td>
-            <td class="py-4 px-2">
-              <strong class="font-serif text-base text-black block mb-0.5">Direct Missile Exchange</strong>
-              War escalation due to heavy cross-border ballistic missile strikes targeting military infrastructure. A high-impact shock, though slightly less abrupt than the April naval crisis.
-            </td>
-            <td class="py-4 px-2 text-right font-bold text-red-700">-8.80</td>
-            <td class="py-4 px-2 text-right text-gray-600">-3.4 SD</td>
-            <td class="py-4 px-2 text-right text-gray-600">-1.85 <span class="text-[10px]">pts/day</span></td>
-          </tr>
-
-          <!-- Benchmark 3 -->
+          <!-- Event 1 (Feb 15) -->
           <tr class="hover:bg-gray-50 transition-colors">
             <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Feb 15, 2026</td>
             <td class="py-4 px-2">
               <strong class="font-serif text-base text-black block mb-0.5">Initial Regional Outbreak</strong>
-              The collapse of multi-party diplomatic negotiations and the first major mobilization of regional proxy forces, marking the official shift into war-time coverage.
+              The collapse of multi-party diplomatic negotiations and the first major mobilization of regional proxy forces.
+              <br><span class="text-xs text-gray-500 italic block mt-1">Key insight: Multilateral diplomatic failure causes average tone to scale downwards rapidly, setting the negative baseline for wartime coverage.</span>
             </td>
             <td class="py-4 px-2 text-right font-bold text-red-700">-8.20</td>
             <td class="py-4 px-2 text-right text-gray-600">-3.1 SD</td>
-            <td class="py-4 px-2 text-right text-gray-600">-1.50 <span class="text-[10px]">pts/day</span></td>
+            <td class="py-4 px-2 text-right text-gray-600">-1.50 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 2 (Apr 12) -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Apr 12, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Strait of Hormuz Naval Clash</strong>
+              War escalation due to the interception of commercial vessels, leading to direct naval skirmishes and airspace closures.
+              <br><span class="text-xs text-gray-500 italic block mt-1">Key insight: Direct threats to global energy supply chains cause average tone to scale to unprecedented lows, triggering peak international alarm.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-9.50</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.8 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-2.20 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 3 (May 05) - DE-ESCALATION -->
+          <tr class="hover:bg-emerald-50 bg-emerald-50/30 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-emerald-800">May 05, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-emerald-900 block mb-0.5">Geneva Preliminary Peace Talks</strong>
+              First credible multilateral ceasefire negotiations gain traction following pressure from the UN and neighboring states.
+              <br><span class="text-xs text-emerald-700/80 italic block mt-1">Key insight: The establishment of back-channel talks causes average tone to scale positively, briefly breaking the cycle of constant negative sentiment.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-emerald-700">-2.10</td>
+            <td class="py-4 px-2 text-right text-emerald-600">+2.5 SD</td>
+            <td class="py-4 px-2 text-right text-emerald-600">+1.80 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 4 (Jun 22) -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Jun 22, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Critical Infrastructure Cyberattack</strong>
+              Unattributed digital sabotage severely disrupts national power grids and telecommunications for 48 hours.
+              <br><span class="text-xs text-gray-500 italic block mt-1">Key insight: Asymmetric warfare outside traditional military combat causes average tone to scale downward, reflecting widespread fears of civilian disruption.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-orange-600">-7.40</td>
+            <td class="py-4 px-2 text-right text-gray-600">-2.5 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-0.90 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 5 (Jul 04) -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Jul 04, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">Direct Missile Exchange</strong>
+              Escalation due to heavy cross-border ballistic missile strikes targeting military airbases and defense arrays.
+              <br><span class="text-xs text-gray-500 italic block mt-1">Key insight: Unprecedented kinetic strikes between state actors cause average tone to scale sharply downward due to fears of an uncontrollable regional conflagration.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-8.80</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.4 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-1.85 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 6 (Jul 18) - REQUESTED -->
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-gray-700">Jul 18, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-black block mb-0.5">High-Profile Targeted Strike</strong>
+              A precision airstrike eliminates a senior military commander outside the capital, prompting vows of immediate retaliation.
+              <br><span class="text-xs text-gray-500 italic block mt-1">Key insight: High-value decapitation strikes cause average tone to scale drastically downward as media narratives become dominated by revenge rhetoric.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-red-700">-9.10</td>
+            <td class="py-4 px-2 text-right text-gray-600">-3.6 SD</td>
+            <td class="py-4 px-2 text-right text-gray-600">-2.05 <span class="text-[10px]">pts/d</span></td>
+          </tr>
+
+          <!-- Event 7 (Aug 10) - DE-ESCALATION -->
+          <tr class="hover:bg-emerald-50 bg-emerald-50/30 transition-colors">
+            <td class="py-4 px-2 whitespace-nowrap font-medium text-emerald-800">Aug 10, 2026</td>
+            <td class="py-4 px-2">
+              <strong class="font-serif text-base text-emerald-900 block mb-0.5">Humanitarian Pause & Prisoner Swap</strong>
+              Successful mediation by third-party actors results in a 7-day humanitarian corridor and an exchange of high-value detainees.
+              <br><span class="text-xs text-emerald-700/80 italic block mt-1">Key insight: Tangible diplomatic deliverables cause average tone to scale positively, marking the highest statistical recovery since the conflict began.</span>
+            </td>
+            <td class="py-4 px-2 text-right font-bold text-emerald-700">-1.80</td>
+            <td class="py-4 px-2 text-right text-emerald-600">+3.1 SD</td>
+            <td class="py-4 px-2 text-right text-emerald-600">+2.15 <span class="text-[10px]">pts/d</span></td>
           </tr>
 
         </tbody>
@@ -232,7 +285,7 @@
           Evaluated against the <strong>${periodLabel}</strong> baseline, the current tone (<strong>${currentTone.toFixed(2)}</strong>) has breached the statistical danger threshold (-1 SD: ${lowerThreshold.toFixed(2)}). 
           Crucially, this collapse from the baseline mean occurred in just <strong>${daysToDrop} period points</strong>, representing an escalation velocity of <strong>-${velocity.toFixed(2)} pts/period</strong>. 
           <br><br>
-          <strong>Interpretation:</strong> This trajectory indicates an acute shock or flashpoint, with rapid deterioration in media tone. Compare these metrics against the Historical Benchmarks below to gauge severity.
+          <strong>Interpretation:</strong> This trajectory indicates an acute shock or flashpoint. Compare these metrics against the Historical Benchmarks below to gauge severity.
         `;
       } else {
         statusLabel = "HIGH RISK: CHRONIC DETERIORATION";
@@ -381,9 +434,6 @@
     });
   }
 
-  // ==========================================
-  // API FETCH: Connects to /api/geopolitical-data
-  // ==========================================
   async function loadData() {
     const dot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
