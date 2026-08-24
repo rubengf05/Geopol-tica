@@ -1,29 +1,10 @@
 // netlify/functions/_lib/gdelt.mjs
-//
-// Lógica pura, sin dependencias de Netlify (@netlify/blobs) ni de la Response
-// del runtime, para que sea fácil de testear (ver test/gdelt.test.mjs) y de
-// reutilizar entre funciones.
-// NOTA: el prefijo "_" en la carpeta hace que Netlify NO la trate como una
-// función propia (convención de "código compartido").
-//
-// ARQUITECTURA DE TAREAS: GDELT limita mucho el ritmo de peticiones (429 si
-// van seguidas) y las funciones de Netlify tienen 10 s de límite, así que es
-// imposible refrescar todo en una sola ejecución. En su lugar, el trabajo se
-// divide en TASKS (una llamada GDELT cada una) y cada ejecución procesa unas
-// pocas — las más antiguas primero — fusionando el resultado con lo guardado.
 
 export const GDELT_BASE = "https://api.gdeltproject.org/api/v2/doc/doc";
 
-// Cuántos puntos de histórico por serie conservamos como máximo en el blob.
-// OJO: GDELT devuelve resolución HORARIA para timespans cortos (168 puntos
-// por semana), así que esto se mide en puntos, no en días: 1000 puntos son
-// ~41 días de datos horarios. El merge de abajo evita perder lo ya guardado
-// cuando la ventana de GDELT se desplaza.
-export const MAX_POINTS_KEPT = 1000;
+// Subido a 2000 para que nunca recorte el histórico de la guerra
+export const MAX_POINTS_KEPT = 2000;
 
-// OJO con las queries: GDELT rechaza frases entrecomilladas de UNA sola
-// palabra ("Iran" -> «The specified phrase is too short»). Palabras sueltas
-// van SIN comillas; las comillas solo para frases de varias palabras.
 export const COUNTRIES = [
   { code: "ISR", name: "Israel", flag: "🇮🇱", region: "Oriente Medio", query: "Israel" },
   { code: "IRN", name: "Irán", flag: "🇮🇷", region: "Oriente Medio", query: "Iran" },
@@ -40,30 +21,21 @@ export const COUNTRIES = [
   { code: "OMN", name: "Omán", flag: "🇴🇲", region: "Oriente Medio", query: "Oman" },
 ];
 
-// Cada tarea = exactamente UNA llamada a GDELT.
-// Calculamos los días desde el inicio del conflicto (febrero de 2026)
+// Cálculo automático de días desde febrero de 2026
 const FEB_2026_START = new Date("2026-02-01T00:00:00Z");
 const DAYS_SINCE_WAR_START = Math.max(
   14, 
   Math.ceil((Date.now() - FEB_2026_START.getTime()) / (1000 * 60 * 60 * 24))
 );
 
-// Cuántos titulares se guardan por país. OJO: esto NO afecta al límite de
-// peticiones de GDELT — una consulta `artlist` devuelve N artículos con una
-// sola llamada. Lo que consume cuota es tener UNA TAREA por país (ver abajo).
 export const ARTICLES_PER_COUNTRY = 6;
 
-// Cada tarea = exactamente UNA llamada a GDELT.
-// El orden importa: `stalestTaskIds` lo respeta mientras nada se haya
-// ejecutado, así que primero van las series de los 13 países (es lo que pinta
-// la rejilla), luego el histórico largo de Irán y al final los titulares de
-// cada país (que solo se ven al abrir su ficha).
 export const TASKS = [
   ...COUNTRIES.map((c) => ({ id: c.code, kind: "country", query: c.query, days: 7 })),
-  // Los días se calculan automáticamente desde febrero de 2026
+  // Tarea de histórico largo de Irán desde el inicio del conflicto:
   { id: "IRN14D", kind: "iran14d", query: "Iran", days: DAYS_SINCE_WAR_START },
   ...COUNTRIES.map((c) => ({
-    id: `${c.code}NEWS`, // IRN -> "IRNNEWS": mismo id que tenía la tarea de Irán
+    id: `${c.code}NEWS`,
     kind: "articles",
     country: c.code,
     query: c.query,
@@ -71,9 +43,6 @@ export const TASKS = [
   })),
 ];
 
-// Esqueleto del payload que se guarda en el blob. `articles` es un mapa
-// código-de-país -> titulares; `iranArticles` se mantiene como espejo de
-// `articles.IRN` por compatibilidad con payloads/consumidores antiguos.
 export function basePayload(existing, errors = []) {
   const payload = {
     updatedAt: new Date().toISOString(),
@@ -85,19 +54,17 @@ export function basePayload(existing, errors = []) {
     taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
     lastErrors: [...errors],
   };
-  // Migración suave: blobs guardados antes de que hubiera titulares por país.
   if (!payload.articles.IRN && payload.iranArticles.length) {
     payload.articles.IRN = payload.iranArticles;
   }
   return payload;
 }
 
-// Escribe el resultado de UNA tarea sobre el payload (mutándolo).
 function applyOneTask(payload, task, data) {
   if (task.kind === "articles") {
     const code = task.country || "IRN";
     payload.articles[code] = data;
-    if (code === "IRN") payload.iranArticles = data; // espejo de compatibilidad
+    if (code === "IRN") payload.iranArticles = data;
   } else if (task.kind === "iran14d") {
     payload.iranExtended14d = mergeSeries(payload.iranExtended14d, data);
   } else {
@@ -107,7 +74,6 @@ function applyOneTask(payload, task, data) {
 }
 
 export function parseGdeltDate(s) {
-  // "20260802T000000Z" -> ISO 8601 UTC
   if (!s || s.length < 15) return null;
   const y = +s.slice(0, 4), m = +s.slice(4, 6) - 1, d = +s.slice(6, 8);
   const H = +s.slice(9, 11), M = +s.slice(11, 13);
@@ -115,14 +81,10 @@ export function parseGdeltDate(s) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-// GDELT a veces responde 200 con texto plano de error ("The specified phrase
-// is too short.", avisos de rate limit…), así que no basta con res.json().
 async function gdeltJson(url, timeoutMs) {
   const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}${res.status === 429 ? " (rate limit de GDELT)" : ""}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}${res.status === 429 ? " (rate limit de GDELT)" : ""}`);
   try {
     return JSON.parse(text);
   } catch {
@@ -150,8 +112,6 @@ export async function fetchArticles(query, max, timeoutMs = 8000) {
   }));
 }
 
-// Fusiona la serie histórica guardada con los puntos nuevos, dedupe por
-// fecha (el nuevo gana si coincide), ordena y recorta a MAX_POINTS_KEPT.
 export function mergeSeries(oldSeries, newPoints, maxPoints = MAX_POINTS_KEPT) {
   const map = new Map((oldSeries || []).map((p) => [p.date, p]));
   for (const p of newPoints || []) {
@@ -162,9 +122,6 @@ export function mergeSeries(oldSeries, newPoints, maxPoints = MAX_POINTS_KEPT) {
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Devuelve los ids de las `n` tareas con el dato más antiguo (las que nunca
-// se han ejecutado van primero). Es lo que usa la función programada para
-// rotar por todas las tareas a lo largo de varias ejecuciones.
 export function stalestTaskIds(existing, n) {
   const stamps = existing?.taskUpdatedAt || {};
   return TASKS
@@ -174,26 +131,17 @@ export function stalestTaskIds(existing, n) {
     .map((t) => t.id);
 }
 
-// ---------------------------------------------------------------------------
-// INGESTA DESDE EL NAVEGADOR
-// GDELT a veces tarda >10 s en responder (más que el límite de las funciones
-// de Netlify), así que la carga manual la hace el NAVEGADOR: descarga el JSON
-// de GDELT (sin límite de tiempo) y lo envía a /api/ingest. Como el cliente
-// no es de fiar, aquí se valida todo antes de fusionarlo con el histórico.
-
 const clampNum = (v, min, max) => (Number.isFinite(v) && v >= min && v <= max ? v : null);
 const cleanStr = (v, maxLen) => (typeof v === "string" ? v.slice(0, maxLen) : null);
 
-// points crudos de GDELT: [{ date: "20260802T000000Z", value: -3.2 }, ...]
 export function sanitizeTimelinePoints(raw) {
   if (!Array.isArray(raw)) throw new Error("points debe ser un array");
   return raw
-    .slice(0, 500)
+    .slice(0, MAX_POINTS_KEPT) // Seguro para series de cientos de días
     .map((p) => ({ date: parseGdeltDate(cleanStr(p?.date, 20)), tone: clampNum(p?.value, -100, 100) }))
     .filter((p) => p.date && p.tone !== null);
 }
 
-// articles crudos de GDELT: [{ title, url, domain, seendate, tone, language }, ...]
 export function sanitizeArticles(raw, max) {
   if (!Array.isArray(raw)) throw new Error("articles debe ser un array");
   return raw
@@ -213,15 +161,10 @@ export function sanitizeArticles(raw, max) {
     .filter((a) => a.title && a.url);
 }
 
-// Valida el body enviado por el navegador para una tarea y lo fusiona con el
-// payload guardado. Lanza si el body no tiene sentido (tarea desconocida,
-// estructura inválida o cero datos válidos tras sanear).
 export function ingestTaskData(existing, taskId, body) {
   const task = TASKS.find((t) => t.id === taskId);
   if (!task) throw new Error(`Tarea desconocida: ${taskId}`);
-
   const payload = basePayload(existing);
-
   let data;
   if (task.kind === "articles") {
     data = sanitizeArticles(body?.articles, task.max);
@@ -234,18 +177,12 @@ export function ingestTaskData(existing, taskId, body) {
   return payload;
 }
 
-// FASE 1: descarga de GDELT las tareas indicadas (en orden) y devuelve
-// { results, errors } sin tocar ningún payload. `budgetMs` corta antes de
-// empezar una tarea nueva si ya no queda tiempo (límite de 10 s de las
-// funciones de Netlify); la tarea omitida queda "stale" y la recoge la
-// siguiente ejecución programada.
 export async function fetchTaskResults(
   taskIds,
   { sleepFn = defaultSleep, delayMs = 800, budgetMs = 5000, timeoutMs = 3000 } = {}
 ) {
-  const results = {}; // id -> puntos (timeline) o artículos
+  const results = {};
   const errors = [];
-
   const started = Date.now();
   let first = true;
   for (const id of taskIds) {
@@ -253,7 +190,7 @@ export async function fetchTaskResults(
       errors.push(`${id}: omitida (sin tiempo en esta ejecución)`);
       continue;
     }
-    if (!first) await sleepFn(delayMs); // no saturar la API pública de GDELT
+    if (!first) await sleepFn(delayMs);
     first = false;
 
     const task = TASKS.find((t) => t.id === id);
@@ -270,30 +207,19 @@ export async function fetchTaskResults(
       errors.push(`${id}: ${e.message}`);
     }
   }
-
   return { results, errors };
 }
 
-// FASE 2: aplica los resultados descargados sobre el estado guardado y
-// devuelve el payload completo a escribir. Se llama con una lectura FRESCA
-// del blob, hecha justo antes de escribir: así la ventana en la que otra
-// escritura concurrente (p.ej. /api/ingest desde un navegador) puede
-// perderse es de milisegundos, no de los segundos que tardan los fetch.
 export function applyTaskResults(existing, results, errors = []) {
   const payload = basePayload(existing, errors);
-
   for (const [id, data] of Object.entries(results || {})) {
     const task = TASKS.find((t) => t.id === id);
     if (!task) continue;
     applyOneTask(payload, task, data);
   }
-
   return payload;
 }
 
-// Conveniencia (y compatibilidad con los tests): descarga + aplica en un
-// paso. En las funciones reales, preferir fetchTaskResults + relectura del
-// blob + applyTaskResults para minimizar la ventana de carrera.
 export async function updateTasks(existing, taskIds, opts = {}) {
   const { results, errors } = await fetchTaskResults(taskIds, opts);
   return applyTaskResults(existing, results, errors);
