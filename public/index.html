@@ -1,81 +1,93 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Boldozer — Piloto Irán (Monitoring & Alerts)</title>
+<title>Boldozer — Iran Pilot (Monitoring & Alerts)</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Serif+Pro:wght@400;600&display=swap" rel="stylesheet">
 <style>
   body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #070d1b;
-  color: #dbe4f3;
+    font-family: 'Source Serif Pro', 'Georgia', serif;
+    background-color: #fff1e5; /* Color clásico del Financial Times */
+    color: #111111;
   }
-  .card { background:#0d1525; border:1px solid #1e2d47; transition: all .15s ease; }
-  .card:hover { border-color:#33507a; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
-  a.card { display:block; text-decoration:none; color:inherit; }
-  a.card:hover .go { color:#93c5fd; }
-  .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  .status-loading { color:#fbbf24; }
-  .status-ok      { color:#34d399; }
-  .status-error   { color:#f87171; }
-  select, input, button { background:#0a1120; border:1px solid #1e2d47; color:#dbe4f3; }
-  button:hover { border-color:#3b6fd6; }
+  h1, h2, h3 {
+    font-family: 'Playfair Display', 'Georgia', serif;
+  }
+  .card {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    transition: all 0.15s ease;
+  }
+  .card:hover {
+    border-color: #999999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .metric-box {
+    border-right: 1px solid #e5e5e5;
+  }
+  .metric-box:last-child {
+    border-right: none;
+  }
+  button {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    color: #333333;
+  }
+  button:hover {
+    border-color: #111111;
+    background-color: #f9f9f9;
+  }
+  .status-loading { color: #b45309; }
+  .status-ok      { color: #15803d; }
+  .status-error   { color: #b91c1c; }
 </style>
 </head>
 <body class="min-h-screen">
 
 <!-- HEADER -->
-<header class="border-b border-[#1e2d47] bg-[#070d1b]/95 sticky top-0 z-20 backdrop-blur">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
+<header class="border-b-2 border-black bg-[#fff1e5] sticky top-0 z-20">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-5">
+    <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">🌍 Boldozer | Step 4: Monitoring System</h1>
-        <p class="text-xs text-sky-400 mt-1 font-medium">Piloto Exclusivo: República Islámica de Irán</p>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-black">Boldozer | Monitoring System</h1>
+        <p class="text-sm text-gray-700 mt-1 uppercase tracking-widest text-xs font-semibold font-sans">Step 4 Pilot: Islamic Republic of Iran</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47] status-loading">
-          <span class="w-1.5 h-1.5 rounded-full bg-current pulse-dot"></span> <span id="statusText">Cargando…</span>
+      <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
+        <span id="statusBadge" class="flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-300 status-loading">
+          <span id="statusText">Loading...</span>
         </span>
-        <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
-          Panel: <span id="lastUpdate" class="text-slate-300">—</span>
+        <span class="px-3 py-1 bg-white border border-gray-300">
+          Dashboard: <span id="lastUpdate" class="font-medium">—</span>
         </span>
-        <span class="px-2.5 py-1 rounded-full bg-[#0a1120] border border-[#1e2d47]">
-          Datos GDELT: <span id="serverUpdate" class="text-slate-300">—</span>
+        <span class="px-3 py-1 bg-white border border-gray-300">
+          GDELT: <span id="serverUpdate" class="font-medium">—</span>
         </span>
-        <button id="refreshBtn" class="px-3 py-1 rounded-full text-xs">🔄 Refrescar caché</button>
-        <button id="triggerFetchBtn" class="px-3 py-1 rounded-full text-xs">⚡ Cargar GDELT ahora</button>
+        <button id="refreshBtn" class="px-3 py-1 transition-colors">Refresh Cache</button>
+        <button id="triggerFetchBtn" class="px-3 py-1 transition-colors">Fetch Live</button>
       </div>
     </div>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-  <!-- CONTROLS (Simplificado para el Piloto) -->
-  <div class="flex flex-wrap gap-3 items-center border-b border-[#1e2d47] pb-4">
-    <p class="text-sm text-slate-300">Demostración en tiempo real de seguimiento de riesgos políticos y reputacionales mediáticos.</p>
-    <span class="text-xs text-slate-500 ml-auto" id="countLabel">Foco: 1 país</span>
+<main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+  <div class="border-b border-gray-300 pb-2">
+    <h2 class="text-xl font-bold">Geopolitical Risk Watchlist</h2>
+    <p class="text-sm text-gray-600 mt-1">Real-time media sentiment and reputational risk monitoring. (AvgTone 7-day trailing).</p>
   </div>
 
   <!-- COUNTRY GRID -->
   <section>
-    <div class="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
-      <h2 class="text-sm font-semibold text-slate-300">🗺️ Estado geopolítico — Irán (AvgTone últimos 7 días · GDELT)</h2>
-      <p class="text-[11px] text-slate-500">Pulsa la tarjeta para abrir la ficha: gráfico completo y titulares.</p>
-    </div>
-    <!-- Se mantiene el mismo grid, pero solo inyectaremos Irán -->
-    <div id="countryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    <div id="countryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
   </section>
 
   <!-- FOOTER -->
-  <footer class="text-[11px] text-slate-500 border-t border-[#1e2d47] pt-4 pb-8 space-y-1 mt-8">
-    <p><strong class="text-slate-400">Fuente de datos:</strong> GDELT Project 2.0 DOC API — endpoints <code class="text-slate-400">mode=timelinetone</code> y <code class="text-slate-400">mode=artlist</code>. AvgTone se calcula como la media del sentimiento léxico de todos los artículos que mencionan al país en el período consultado. Rango teórico [-100, +100]; la ventana operativa práctica está entre -10 y +10.</p>
-    <p><strong class="text-slate-400">Arquitectura:</strong> una <em>Netlify Scheduled Function</em> (<code class="text-slate-400">fetch-gdelt-scheduled</code>) consulta GDELT por rotación y guarda el resultado en <em>Netlify Blobs</em>. El navegador solo llama a <code class="text-slate-400">/api/geopolitical-data</code> (la caché compartida).</p>
+  <footer class="text-xs text-gray-500 border-t border-gray-300 pt-6 pb-12 space-y-2 mt-12 font-sans">
+    <p><strong class="text-gray-700">Data Source:</strong> GDELT Project 2.0 DOC API — endpoints <code>mode=timelinetone</code> and <code>mode=artlist</code>. AvgTone is calculated as the average lexical sentiment of all articles mentioning the entity in the queried period. Theoretical range [-100, +100]; practical operating window between -10 and +10.</p>
+    <p><strong class="text-gray-700">Architecture:</strong> A <em>Netlify Scheduled Function</em> (<code>fetch-gdelt-scheduled</code>) queries GDELT on rotation and saves the output to <em>Netlify Blobs</em>. The browser client exclusively requests <code>/api/geopolitical-data</code> (shared cache).</p>
   </footer>
 </main>
 
@@ -87,51 +99,50 @@ import {
 
 const state = { meta: [], countries: {}, lastUpdate: null, updatedAtServer: null, timer: null };
 
-// ================= RENDER: REJILLA DE PAÍSES (Filtrado a Irán) =================
+// ================= RENDER: FILTERED TO IRAN =================
 function renderCountryGrid() {
-  // Filtramos el estado para que solo agarre a Irán (por código ISO 'IR' o nombre)
   let data = state.meta
     .filter((c) => c.code === "IR" || c.name.toLowerCase().includes("ir"))
     .map((c) => ({ ...c, ...state.countries[c.code] }));
 
+  // Notamos la omisión intencional de la bandera (c.flag)
   document.getElementById("countryGrid").innerHTML = data.map((c) => `
-    <a class="card rounded-lg p-4 flex flex-col gap-3" href="pais.html?code=${encodeURIComponent(c.code)}"
-       target="_blank" rel="noopener" title="Abrir la ficha de ${escapeHtml(c.name)} en una pestaña nueva">
-      <div class="flex items-start justify-between">
+    <a class="card p-6 flex flex-col gap-5" href="pais.html?code=${encodeURIComponent(c.code)}"
+       target="_blank" rel="noopener" title="Open full dossier for ${escapeHtml(c.name)}">
+      <div class="flex items-start justify-between border-b border-gray-200 pb-3">
         <div>
-          <div class="flex items-center gap-2">
-            <span class="text-xl">${c.flag}</span>
-            <span class="font-semibold text-white">${escapeHtml(c.name)}</span>
-          </div>
-          <span class="text-[10px] text-slate-500">${escapeHtml(c.region)} · ${escapeHtml(c.code)}</span>
+          <h3 class="text-2xl font-bold text-black">${escapeHtml(c.name)}</h3>
+          <span class="text-xs text-gray-500 uppercase tracking-wider font-sans">${escapeHtml(c.region)} · ISO: ${escapeHtml(c.code)}</span>
         </div>
-        ${c.error ? `<span class="text-[10px] text-red-300">⚠ sin dato</span>`
-                  : `<span class="text-[10px] text-slate-500">últimos 7 días</span>`}
+        ${c.error ? `<span class="text-xs text-red-700 font-sans border border-red-200 px-2 py-1 bg-red-50">No Data</span>`
+                  : `<span class="text-xs text-gray-600 font-sans px-2 py-1 bg-gray-100 border border-gray-200">Last 7 Days</span>`}
       </div>
 
-      <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="rounded-md bg-[#1a2338] py-2">
-          <div class="text-[10px] text-slate-500">Hoy</div>
-          <div class="text-lg font-bold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
+      <div class="grid grid-cols-3 gap-0 border border-gray-200 bg-gray-50 font-sans">
+        <div class="metric-box p-3 text-center">
+          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Today</div>
+          <div class="text-xl font-semibold" style="color:${toneColor(c.last)}">${fmt(c.last, 1)}</div>
         </div>
-        <div class="rounded-md bg-[#1a2338] py-2">
-          <div class="text-[10px] text-slate-500">Media 7d</div>
-          <div class="text-lg font-bold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
+        <div class="metric-box p-3 text-center">
+          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">7d Avg</div>
+          <div class="text-xl font-semibold" style="color:${toneColor(c.avg7d)}">${fmt(c.avg7d, 1)}</div>
         </div>
-        <div class="rounded-md bg-[#1a2338] py-2">
-          <div class="text-[10px] text-slate-500">Δ semana</div>
-          <div class="text-lg font-bold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#64748b" : c.delta7d < 0 ? "#f87171" : "#34d399"}">${fmt(c.delta7d, 1)}</div>
+        <div class="metric-box p-3 text-center">
+          <div class="text-[10px] uppercase text-gray-500 mb-1 tracking-wide">Weekly Δ</div>
+          <div class="text-xl font-semibold" style="color:${c.delta7d === null || c.delta7d === undefined ? "#9ca3af" : c.delta7d < 0 ? "#dc2626" : "#16a34a"}">${fmt(c.delta7d, 1)}</div>
         </div>
       </div>
 
-      <div class="go text-[11px] text-slate-500 flex items-center justify-end gap-1">Ver gráfico y noticias ↗</div>
+      <div class="text-xs text-blue-700 font-sans font-medium text-right hover:underline">
+        View full chart and news &rarr;
+      </div>
     </a>
   `).join("");
 }
 
-// ================= CARGA =================
+// ================= LOAD SYSTEM =================
 async function loadAll() {
-  setStatus("loading", "Leyendo caché…");
+  setStatus("loading", "Reading cache...");
   const startedAt = Date.now();
   try {
     const d = await loadPanelData();
@@ -143,11 +154,11 @@ async function loadAll() {
 
     const failed = Object.values(state.countries).filter((c) => c.error).length;
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    if (state.meta.length > 0 && failed === state.meta.length) setStatus("error", `Sin datos en la caché — ${elapsed}s`);
-    else if (failed > 0) setStatus("ok", `OK con avisos (${failed} sin dato global) — ${elapsed}s`);
+    if (state.meta.length > 0 && failed === state.meta.length) setStatus("error", `Cache empty — ${elapsed}s`);
+    else if (failed > 0) setStatus("ok", `OK (${failed} missing globally) — ${elapsed}s`);
     else setStatus("ok", `OK — ${elapsed}s`);
   } catch (e) {
-    setStatus("error", `Error leyendo /api/geopolitical-data: ${e.message}`);
+    setStatus("error", `API Error: ${e.message}`);
   }
 
   document.getElementById("lastUpdate").textContent = fmtTime(state.lastUpdate || new Date());
@@ -167,16 +178,15 @@ function scheduleNext() {
   state.timer = setTimeout(() => loadAll(), REFRESH_MS);
 }
 
-// ================= CARGA MANUAL DE GDELT =================
+// ================= MANUAL FETCH =================
 async function triggerFetch() {
   const btn = document.getElementById("triggerFetchBtn");
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = "⏳ Preparando…";
+  btn.textContent = "Preparing...";
 
   try {
     const tasks = await fetchTaskList();
-
     let freshIds = new Set();
     try {
       const cur = await (await fetch(API_URL, { cache: "no-store" })).json();
@@ -186,20 +196,20 @@ async function triggerFetch() {
           .filter(([, at]) => new Date(at).getTime() > cutoff)
           .map(([id]) => id)
       );
-    } catch { /* sin caché aún */ }
+    } catch { /* no cache yet */ }
     
-    // Filtramos para que al forzar refresco solo priorice a Irán para no agotar la API en la demo
+    // Filtro para enfocar la recarga en Irán
     const pending = tasks.filter((t) => !freshIds.has(t.id) && (t.id.includes('IR') || t.id.includes('iran')));
 
     if (pending.length === 0) {
-      btn.textContent = "Irán ya está al día";
+      btn.textContent = "Up to date";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
       return;
     }
 
     let failed = [];
     for (let i = 0; i < pending.length; i++) {
-      btn.textContent = `⏳ Cargando Irán… ${i + 1}/${pending.length}`;
+      btn.textContent = `Fetching Iran... ${i + 1}/${pending.length}`;
       try {
         if (!(await runTask(pending[i]))) failed.push(pending[i]);
       } catch { failed.push(pending[i]); }
@@ -207,10 +217,10 @@ async function triggerFetch() {
       if (i < pending.length - 1) await sleep(7000);
     }
 
-    btn.textContent = failed.length ? `Fallo al actualizar Irán` : "Datos cargados";
+    btn.textContent = failed.length ? `Update failed` : "Data loaded";
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; loadAll(); }, 2500);
   } catch (e) {
-    btn.textContent = " Error: " + e.message;
+    btn.textContent = "Error: " + e.message;
     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 4000);
   }
 }
