@@ -7,12 +7,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Google Fonts: Lora (Serif) -->
+<!-- Google Fonts: Lora (Serif) & Inter (Sans) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* Financial Times / Newspaper Aesthetic */
   body {
     font-family: 'Lora', Georgia, serif;
     background: #ffffff;
@@ -20,9 +19,10 @@
   }
   
   h1, h2, h3 { font-weight: 600; color: #000000; }
+  .font-sans { font-family: 'Inter', sans-serif; }
   
   .border-ft { border-color: #dcdcdc; }
-  .bg-ft-box { background-color: #f3eed9; } /* Classic FT paper tint */
+  .bg-ft-box { background-color: #f3eed9; }
   
   .news-card {
     border-bottom: 1px solid #dcdcdc;
@@ -30,12 +30,28 @@
   }
   .news-card:hover { background-color: #f9f9f9; }
 
-  /* Status Dots */
   .pulse-dot { animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% {opacity: 1;} 50% {opacity: 0.35;} }
-  .status-ok { color: #059669; }
+  .status-loading { color: #d97706; }
+  .status-ok      { color: #059669; }
+  .status-error   { color: #dc2626; }
 
-  button { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .time-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #dcdcdc;
+    background: #fff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .time-btn:hover { background: #f3f4f6; }
+  .time-btn.active { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .time-btn:first-child { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+  .time-btn:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  .time-btn:not(:last-child) { border-right: none; }
 </style>
 </head>
 <body class="min-h-screen">
@@ -49,11 +65,11 @@
         <p class="text-sm text-gray-500 mt-1 italic">Media tone analysis & latest coverage · Data by GDELT 2.0</p>
       </div>
       <div class="flex flex-wrap items-center gap-3 text-xs font-sans">
-        <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gray-50 border border-ft text-gray-700">
-          <span class="w-2 h-2 rounded-full bg-current pulse-dot status-ok"></span> 
-          <span>Live</span>
+        <span id="statusBadgeContainer" class="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-gray-50 border border-ft text-gray-700">
+          <span id="statusDot" class="w-2 h-2 rounded-full bg-current pulse-dot status-loading"></span> 
+          <span id="statusText">Connecting…</span>
         </span>
-        <button id="refreshBtn" class="px-3 py-1.5 rounded-sm border border-ft bg-white hover:bg-gray-50 transition">
+        <button id="refreshBtn" class="px-3 py-1.5 rounded-sm border border-ft bg-white hover:bg-gray-50 transition time-btn" style="border-radius:4px;">
           Refresh Data
         </button>
       </div>
@@ -66,29 +82,38 @@
 
   <!-- CHART SECTION -->
   <section class="flex flex-col items-center">
-    <div class="w-full mb-4 text-center">
-      <h2 class="text-xl mb-1">Geopolitical Tone (AvgTone) — Last 30 Days</h2>
-      <p class="text-sm text-gray-500 max-w-xl mx-auto">
-        Daily media sentiment. Dashed lines represent ±1 Standard Deviation to highlight statistically significant tone anomalies.
-      </p>
+    <div class="w-full mb-4 flex flex-col sm:flex-row justify-between items-end gap-4 border-b border-ft pb-2">
+      <div>
+        <h2 class="text-xl mb-1">Geopolitical Tone (AvgTone)</h2>
+        <p class="text-xs text-gray-500 max-w-md">
+          Dashed lines represent ±1 Standard Deviation calculated dynamically over the selected timeframe.
+        </p>
+      </div>
+      
+      <!-- Time Range Selector -->
+      <div class="flex shadow-sm" id="timeControls">
+        <button class="time-btn" data-days="7">7 Days</button>
+        <button class="time-btn active" data-days="30">1 Month</button>
+        <button class="time-btn" data-days="all">War Total</button>
+      </div>
     </div>
     
     <!-- Chart Container -->
-    <div class="w-full bg-white border border-ft p-6 rounded-sm shadow-sm mb-6">
+    <div class="w-full bg-white border border-ft p-4 sm:p-6 rounded-sm shadow-sm mb-6 min-h-[220px] flex items-center justify-center">
       <canvas id="iranChart" height="120"></canvas>
     </div>
 
-    <!-- Quantitative Analysis Box (Fully Automated) -->
+    <!-- Quantitative Analysis Box -->
     <div class="w-full bg-ft-box border border-ft p-6 rounded-sm text-sm">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2 border-b border-gray-300 pb-2">
-        <h3 class="font-bold uppercase tracking-wide text-xs font-sans text-gray-600">Automated Assessment</h3>
+        <h3 class="font-bold uppercase tracking-wide text-xs font-sans text-gray-600">Automated Assessment <span id="assessmentPeriod" class="normal-case font-normal text-gray-500">(1 Month Baseline)</span></h3>
         <span id="statusBadge" class="font-bold font-sans text-[11px] px-2 py-1 rounded-sm border bg-white tracking-wider">
-          <!-- JS will inject badge here -->
+          CALCULATING…
         </span>
       </div>
       
       <div id="derivativeAnalysis" class="leading-relaxed text-[15px]">
-        <!-- JS will inject the dynamic interpretation here -->
+        Loading geopolitical data from cache…
       </div>
     </div>
   </section>
@@ -99,177 +124,167 @@
       <h2 class="text-xl">Latest Coverage</h2>
     </div>
     <div id="newsContainer" class="flex flex-col">
-      <!-- News items injected via JS -->
+      <p class="text-sm text-gray-500 py-4 font-sans">Loading headlines…</p>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer class="text-xs text-gray-500 border-t border-ft pt-6 pb-12 font-sans text-center">
-    <p>Data Source: GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of all articles mentioning the country.</p>
+    <p>Data Source: GDELT Project 2.0 DOC API. AvgTone is calculated as the average lexical sentiment of articles mentioning Iran.</p>
   </footer>
 </main>
 
 <script>
-  // ==========================================
-  // 1. DATA
-  // ==========================================
-  
-  const labels = Array.from({length: 30}, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (29 - i));
+  let chartInstance = null;
+  let fullHistoricalData = [];
+  let currentActiveDays = '30';
+
+  // Format dates for display
+  function formatDateLabel(isoStr) {
+    if (!isoStr) return "";
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  });
+  }
 
-  // MOCK DATA: Notice how the last 3 days drop heavily to trigger the "CRITICAL" state.
-  // Change the last 3 values to -4.0 to see the assessment change to "STABLE".
-  const iranTimelineData = [
-    -3.2, -3.5, -4.1, -3.8, -4.5, -5.2, -4.8, -4.1, -3.9, -3.6,
-    -3.4, -4.0, -4.2, -4.8, -4.1, -3.9, -4.5, -3.8, -4.2, -4.1,
-    -3.8, -4.0, -4.2, -3.9, -4.1, -3.8, -4.0, -6.5, -7.8, -8.5
-  ];
-
-  const iranNewsData = [
-    { title: "Regional Tensions Escalate Following Border Incident", source: "Global News Wire", url: "#", date: "2 hours ago" },
-    { title: "Diplomatic Talks Stall as New Sanctions are Proposed", source: "International Herald", url: "#", date: "5 hours ago" },
-    { title: "Economic Analysis: Impact of Global Markets on Domestic Policy", source: "Financial Journal", url: "#", date: "1 day ago" }
-  ];
-
-  // ==========================================
-  // 2. MATH: CALCULATE MEAN & STANDARD DEVIATION
-  // ==========================================
-  
-  function calculateStats(data) {
-    const n = data.length;
-    const mean = data.reduce((a, b) => a + b, 0) / n;
-    const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+  function calculateStats(dataArray) {
+    const n = dataArray.length;
+    if (n === 0) return { mean: 0, stdDev: 0 };
+    const mean = dataArray.reduce((acc, val) => acc + val, 0) / n;
+    const variance = dataArray.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / n;
     const stdDev = Math.sqrt(variance);
     return { mean, stdDev };
   }
 
-  // ==========================================
-  // 3. DYNAMIC INTERPRETATION ENGINE
-  // ==========================================
-  
-  function analyzeCurrentSituation(data, mean, stdDev) {
-    const currentTone = data[data.length - 1];
+  function analyzeCurrentSituation(tones, mean, stdDev, periodLabel) {
+    if (!tones || tones.length === 0) return;
+
+    const currentTone = tones[tones.length - 1];
     const lowerThreshold = mean - stdDev;
     const upperThreshold = mean + stdDev;
     
     let daysToDrop = 0;
-    let velocity = 0; // Derivative: Points per day
+    let velocity = 0;
 
-    // Calculate how many days since the tone was last at/above the mean
     if (currentTone < mean) {
-      for (let i = data.length - 2; i >= 0; i--) {
-        if (data[i] >= mean) {
-          daysToDrop = (data.length - 1) - i;
-          velocity = Math.abs((data[i] - currentTone) / daysToDrop);
+      for (let i = tones.length - 2; i >= 0; i--) {
+        if (tones[i] >= mean) {
+          daysToDrop = (tones.length - 1) - i;
+          velocity = Math.abs((tones[i] - currentTone) / daysToDrop);
           break;
         }
       }
     }
 
-    // Determine the state dynamically based on thresholds and velocity
-    let statusLabel = "";
-    let badgeColorClass = "";
-    let assessmentText = "";
+    let statusLabel, badgeColorClass, assessmentText;
 
     if (currentTone <= lowerThreshold) {
       if (daysToDrop > 0 && daysToDrop <= 5) {
-        // STATE: RAPID ESCALATION
         statusLabel = "CRITICAL: RAPID ESCALATION";
         badgeColorClass = "text-red-700 border-red-700";
         assessmentText = `
-          The current media tone (<strong>${currentTone.toFixed(2)}</strong>) has violently breached the statistical danger threshold (-1 SD). 
-          Crucially, this collapse from the historical mean occurred in just <strong>${daysToDrop} days</strong>, representing an extreme escalation rate of <strong>-${velocity.toFixed(2)} points per day</strong>. 
+          Evaluated against the <strong>${periodLabel}</strong> baseline, the current tone (<strong>${currentTone.toFixed(2)}</strong>) has breached the statistical danger threshold (-1 SD: ${lowerThreshold.toFixed(2)}). 
+          Crucially, this collapse from the baseline mean occurred in just <strong>${daysToDrop} period points</strong>, representing an escalation velocity of <strong>-${velocity.toFixed(2)} pts/period</strong>. 
           <br><br>
-          <strong>Interpretation:</strong> This trajectory strongly indicates an acute geopolitical shock or a sudden flashpoint, rather than routine friction. The rapidity of the drop leaves limited diplomatic runway for immediate de-escalation.
+          <strong>Interpretation:</strong> This trajectory indicates an acute shock or flashpoint, with rapid deterioration in media tone.
         `;
       } else {
-        // STATE: CHRONIC DETERIORATION
         statusLabel = "HIGH RISK: CHRONIC DETERIORATION";
         badgeColorClass = "text-orange-700 border-orange-700";
         assessmentText = `
-          The current media tone (<strong>${currentTone.toFixed(2)}</strong>) sits deeply below the -1 SD threshold. 
-          However, reaching this state took <strong>${daysToDrop || '>5'} days</strong> with a slower drift of <strong>-${velocity.toFixed(2)} pts/day</strong>.
+          The current media tone (<strong>${currentTone.toFixed(2)}</strong>) sits deeply below the -1 SD threshold for the <strong>${periodLabel}</strong>. 
+          Reaching this state took <strong>${daysToDrop || '>5'} periods</strong> at a slower pace of <strong>-${velocity.toFixed(2)} pts/period</strong>.
           <br><br>
-          <strong>Interpretation:</strong> We are observing a structural, slow-burning degradation of the geopolitical environment. While not a sudden shock, prolonged exposure at these levels often precedes major structural shifts or hardline policy changes.
+          <strong>Interpretation:</strong> Prolonged exposure at these depressed levels reflects persistent, structural geopolitical tension.
         `;
       }
     } else if (currentTone < mean && currentTone > lowerThreshold) {
-      // STATE: ELEVATED TENSION
       statusLabel = "WARNING: ELEVATED TENSION";
       badgeColorClass = "text-amber-600 border-amber-600";
       assessmentText = `
-        Sentiment currently reads at <strong>${currentTone.toFixed(2)}</strong>, trending below the historical baseline of ${mean.toFixed(2)}, but it has not yet breached the critical -1 SD threshold.
+        Sentiment currently reads at <strong>${currentTone.toFixed(2)}</strong>, trending below the <strong>${periodLabel}</strong> baseline of ${mean.toFixed(2)}, but without breaching the critical -1 SD threshold (${lowerThreshold.toFixed(2)}).
         <br><br>
-        <strong>Interpretation:</strong> The environment is experiencing elevated diplomatic friction or localized negative coverage. The situation requires monitoring, but currently lacks the mathematical momentum to be classified as an acute crisis.
+        <strong>Interpretation:</strong> The environment is experiencing elevated diplomatic friction, but currently lacks the momentum of an acute crisis.
       `;
     } else if (currentTone >= mean && currentTone <= upperThreshold) {
-      // STATE: STABLE
       statusLabel = "STABLE: BASELINE NORMALITY";
       badgeColorClass = "text-emerald-700 border-emerald-700";
       assessmentText = `
-        The current tone (<strong>${currentTone.toFixed(2)}</strong>) is hovering comfortably within normal statistical parameters (Mean: ${mean.toFixed(2)} ± ${stdDev.toFixed(2)}).
+        The current tone (<strong>${currentTone.toFixed(2)}</strong>) is hovering comfortably within normal statistical parameters for the <strong>${periodLabel}</strong> (Mean: ${mean.toFixed(2)} ± ${stdDev.toFixed(2)}).
         <br><br>
-        <strong>Interpretation:</strong> Media sentiment reflects routine regional activity. No significant anomalies or acute geopolitical risks are currently detected in the data stream.
+        <strong>Interpretation:</strong> Media sentiment reflects baseline coverage without severe statistical anomalies.
       `;
     } else {
-      // STATE: POSITIVE/DE-ESCALATION
       statusLabel = "POSITIVE: DE-ESCALATION";
       badgeColorClass = "text-blue-700 border-blue-700";
       assessmentText = `
-        Remarkably, the current tone (<strong>${currentTone.toFixed(2)}</strong>) has broken above the +1 SD threshold.
+        The current tone (<strong>${currentTone.toFixed(2)}</strong>) has broken above the +1 SD threshold (${upperThreshold.toFixed(2)}) for the <strong>${periodLabel}</strong>.
         <br><br>
-        <strong>Interpretation:</strong> This signifies an unusually positive shift in media coverage, strongly pointing toward successful diplomatic breakthroughs, structural de-escalation, or highly favorable regional developments.
+        <strong>Interpretation:</strong> This indicates an unusually positive or de-escalatory trend in coverage.
       `;
     }
 
-    // Inject into DOM
     const badgeElement = document.getElementById('statusBadge');
     badgeElement.innerText = statusLabel;
     badgeElement.className = `font-bold font-sans text-[11px] px-2 py-1 rounded-sm border bg-white tracking-wider ${badgeColorClass}`;
     
+    document.getElementById('assessmentPeriod').innerText = `(${periodLabel} Baseline)`;
     document.getElementById('derivativeAnalysis').innerHTML = assessmentText;
   }
 
-  // ==========================================
-  // 4. RENDER CHART
-  // ==========================================
-  
-  function renderChart() {
+  function updateView(days) {
+    if (!fullHistoricalData || fullHistoricalData.length === 0) return;
+
+    let slicedData;
+    let periodLabel;
+
+    if (days === 'all') {
+      slicedData = fullHistoricalData;
+      periodLabel = "War Total";
+    } else {
+      const count = parseInt(days);
+      // If data is hourly/dense, approx points or slice by days
+      slicedData = fullHistoricalData.slice(-Math.min(fullHistoricalData.length, count * 4)); 
+      periodLabel = days === '7' ? "7-Day" : "1 Month";
+    }
+
+    const labels = slicedData.map(d => formatDateLabel(d.date));
+    const tones = slicedData.map(d => Number(d.tone));
+
+    const { mean, stdDev } = calculateStats(tones);
+    analyzeCurrentSituation(tones, mean, stdDev, periodLabel);
+
+    const meanLine = tones.map(() => mean);
+    const lowerStdDevLine = tones.map(() => mean - stdDev);
+    const upperStdDevLine = tones.map(() => mean + stdDev);
+
     const ctx = document.getElementById('iranChart').getContext('2d');
-    const { mean, stdDev } = calculateStats(iranTimelineData);
-    
-    // Execute Dynamic Assessment
-    analyzeCurrentSituation(iranTimelineData, mean, stdDev);
+    if (chartInstance) chartInstance.destroy();
 
-    const meanLine = iranTimelineData.map(() => mean);
-    const lowerStdDevLine = iranTimelineData.map(() => mean - stdDev);
-    const upperStdDevLine = iranTimelineData.map(() => mean + stdDev);
+    const pRadius = days === 'all' ? 0 : (days === '7' ? 3 : 1.5);
 
-    new Chart(ctx, {
+    chartInstance = new Chart(ctx, {
       type: 'line',
       data: {
         labels: labels,
         datasets: [
           {
             label: 'AvgTone',
-            data: iranTimelineData,
+            data: tones,
             borderColor: '#0f172a',
-            borderWidth: 2,
-            tension: 0.3,
+            borderWidth: 1.5,
+            tension: 0.25,
             fill: false, 
             pointBackgroundColor: '#0f172a',
-            pointRadius: 2,
-            pointHoverRadius: 5
+            pointRadius: pRadius,
+            pointHoverRadius: 4
           },
           {
             label: '-1 Std Dev',
             data: lowerStdDevLine,
             borderColor: '#ef4444',
             borderWidth: 1,
-            borderDash: [5, 5],
+            borderDash: [4, 4],
             pointRadius: 0,
             fill: false
           },
@@ -278,7 +293,7 @@
             data: upperStdDevLine,
             borderColor: '#94a3b8',
             borderWidth: 1,
-            borderDash: [5, 5],
+            borderDash: [4, 4],
             pointRadius: 0,
             fill: false
           },
@@ -308,33 +323,93 @@
           }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { family: "sans-serif", size: 11 } } },
-          y: { grid: { color: '#f1f5f9' }, ticks: { font: { family: "sans-serif", size: 11 } } }
+          x: { 
+            grid: { display: false }, 
+            ticks: { maxTicksLimit: 8, font: { family: "sans-serif", size: 11 } } 
+          },
+          y: { 
+            grid: { color: '#f1f5f9' }, 
+            ticks: { font: { family: "sans-serif", size: 11 } } 
+          }
         }
       }
     });
   }
 
-  // ==========================================
-  // 5. RENDER NEWS
-  // ==========================================
-  
-  function renderNews() {
+  function renderNews(articles) {
     const container = document.getElementById('newsContainer');
-    container.innerHTML = iranNewsData.map(news => `
+    if (!articles || articles.length === 0) {
+      container.innerHTML = '<p class="text-sm text-gray-400 py-4 font-sans">No recent articles found in cache.</p>';
+      return;
+    }
+
+    container.innerHTML = articles.map(news => `
       <a href="${news.url}" target="_blank" rel="noopener" class="news-card block py-4 group">
         <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
           <h3 class="text-lg group-hover:text-blue-700 transition-colors">${news.title}</h3>
-          <span class="text-xs text-gray-500 font-sans whitespace-nowrap">${news.date}</span>
+          <span class="text-xs text-gray-500 font-sans whitespace-nowrap">${formatDateLabel(news.date)}</span>
         </div>
-        <div class="text-sm text-gray-600 mt-1">${news.source}</div>
+        <div class="text-sm text-gray-600 mt-1">${news.domain || news.source || 'GDELT'}</div>
       </a>
     `).join('');
   }
 
+  // ==========================================
+  // API FETCH: Connects to /api/geopolitical-data
+  // ==========================================
+  async function loadData() {
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    
+    dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-loading";
+    statusText.textContent = "Loading…";
+
+    try {
+      const res = await fetch('/api/geopolitical-data', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Extract Iran's extended historical series (since start of war)
+      fullHistoricalData = data.iranExtended14d || data.countries?.IRN || [];
+      
+      // Extract news articles
+      const articles = data.articles?.IRN || data.iranArticles || [];
+      
+      if (fullHistoricalData.length === 0) {
+        throw new Error("No historical data available for Iran in cache.");
+      }
+
+      // Render View
+      updateView(currentActiveDays);
+      renderNews(articles);
+
+      dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-ok";
+      statusText.textContent = "Live";
+    } catch (err) {
+      console.error(err);
+      dot.className = "w-2 h-2 rounded-full bg-current status-error";
+      statusText.textContent = "Cache Error";
+      document.getElementById('derivativeAnalysis').innerHTML = 
+        `<span class="text-red-600">Error reading cached data: ${err.message}. Please click 'Refresh Data' or trigger backend ingestion.</span>`;
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
-    renderChart();
-    renderNews();
+    loadData();
+
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      loadData();
+    });
+
+    const timeBtns = document.querySelectorAll('.time-btn[data-days]');
+    timeBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        timeBtns.forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentActiveDays = e.target.getAttribute('data-days');
+        updateView(currentActiveDays);
+      });
+    });
   });
 </script>
 </body>
