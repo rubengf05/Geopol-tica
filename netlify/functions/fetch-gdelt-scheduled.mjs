@@ -31,19 +31,25 @@ export default async () => {
 
   const existing = await readExisting(store);
   const ids = stalestTaskIds(existing, 2);
-  const { results, errors } = await fetchTaskResults(ids, {
+  const { results, errors, attempted } = await fetchTaskResults(ids, {
     delayMs: 4000,
     budgetMs: 5000,
     timeoutMs: 2500,
   });
 
-  if (Object.keys(results).length === 0) {
-    console.log(`[fetch-gdelt-scheduled] tareas ${ids.join(",")} — sin éxitos, no se escribe: ${errors.join("; ")}`);
+  // Aunque ninguna tarea tenga éxito, SÍ hay que escribir el sello de
+  // "intentado": si no, una tarea que falla siempre (p.ej. por timeout de
+  // GDELT) se queda fija como "la más vieja" para siempre y acapara las 2
+  // plazas de cada rotación, bloqueando el refresco de las otras 25 tareas.
+  // Se relee el blob justo antes de escribir (anti-carrera), igual que en el
+  // camino de éxito.
+  if (attempted.length === 0) {
+    console.log(`[fetch-gdelt-scheduled] tareas ${ids.join(",")} — nada que intentar, no se escribe: ${errors.join("; ")}`);
     return new Response("OK (sin cambios)");
   }
 
   const fresh = await readExisting(store);
-  const payload = applyTaskResults(fresh, results, errors);
+  const payload = applyTaskResults(fresh, results, errors, attempted);
   await store.setJSON("geopolitical-data", payload);
 
   const summary = errors.length === 0 ? "sin errores" : `${errors.length} error(es): ${errors.join("; ")}`;
