@@ -34,7 +34,7 @@ export default async (req) => {
   // Una sola llamada GDELT por invocación: presupuesto y timeout holgados.
   // Anti-carrera: descargar primero (lo lento), leer el blob justo antes de
   // escribir, y no escribir nada si la descarga falló.
-  const { results, errors } = await fetchTaskResults([target], { budgetMs: 9000, timeoutMs: 7000 });
+  const { results, errors, attempted } = await fetchTaskResults([target], { budgetMs: 9000, timeoutMs: 7000 });
 
   if (Object.keys(results).length === 0) {
     return json({ ok: false, target, errors });
@@ -48,7 +48,7 @@ export default async (req) => {
     existing = null;
   }
 
-  const payload = applyTaskResults(existing, results, errors);
+  const payload = applyTaskResults(existing, results, errors, attempted);
   await store.setJSON("geopolitical-data", payload);
 
   return json({ ok: true, target, updatedAt: payload.updatedAt, errors });
