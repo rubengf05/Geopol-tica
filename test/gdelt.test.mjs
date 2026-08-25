@@ -12,6 +12,7 @@ import {
   mergeSeries,
   updateTasks,
   stalestTaskIds,
+  applyTaskResults,
   ingestTaskData,
   sanitizeTimelinePoints,
   sanitizeArticles,
@@ -126,9 +127,10 @@ test("updateTasks: ejecuta todas las tareas y rellena el payload completo", asyn
     }
     assert.deepEqual(payload.iranArticles, payload.articles.IRN);
     assert.equal(payload.lastErrors.length, 0);
-    // todas las tareas quedan selladas con su fecha de ejecución
+    // todas las tareas quedan selladas con su fecha de ejecución (éxito y, además, intento)
     for (const id of ALL_TASK_IDS) {
-      assert.ok(payload.taskUpdatedAt[id], `falta sello de ${id}`);
+      assert.ok(payload.taskUpdatedAt[id], `falta sello de éxito de ${id}`);
+      assert.ok(payload.taskAttemptedAt[id], `falta sello de intento de ${id}`);
     }
   } finally {
     restore();
@@ -175,7 +177,8 @@ test("updateTasks: si GDELT falla en una tarea, no rompe las demás", async () =
     assert.ok(payload.lastErrors.some((e) => e.startsWith("SYR:")));
     assert.equal(payload.countries.SYR, undefined); // no se guarda nada roto
     assert.equal(payload.countries.IRN.length, 7); // el resto sigue funcionando
-    assert.equal(payload.taskUpdatedAt.SYR, undefined); // sigue "stale": se reintentará
+    assert.equal(payload.taskUpdatedAt.SYR, undefined); // sin dato nuevo: sigue "stale" para los datos
+    assert.ok(payload.taskAttemptedAt.SYR); // pero SÍ se marca como intentada
   } finally {
     restore();
   }
@@ -203,6 +206,11 @@ test("updateTasks: el presupuesto de tiempo corta antes de empezar tareas nuevas
     assert.equal(payload.countries.USA, undefined);
     assert.equal(payload.lastErrors.length, 2); // las omitidas quedan anotadas
     assert.ok(payload.lastErrors.every((e) => e.includes("omitida")));
+    // Las omitidas por presupuesto NO cuentan como "intentadas": deben seguir
+    // siendo las más prioritarias en la próxima rotación.
+    assert.ok(payload.taskAttemptedAt.ISR);
+    assert.equal(payload.taskAttemptedAt.IRN, undefined);
+    assert.equal(payload.taskAttemptedAt.USA, undefined);
   } finally {
     restore();
   }
@@ -285,15 +293,52 @@ test("ingestTaskData: rechaza tarea desconocida y datos sin nada válido", () =>
   assert.throws(() => ingestTaskData(null, "IRNNEWS", { articles: [{ title: "x", url: "ftp://mal" }] }), /sin artículos/);
 });
 
-test("stalestTaskIds: primero las nunca ejecutadas, luego las más antiguas", () => {
+test("stalestTaskIds: primero las nunca intentadas, luego las más antiguas", () => {
   // Sin histórico: respeta el orden de TASKS
   assert.deepEqual(stalestTaskIds(null, 2), [TASKS[0].id, TASKS[1].id]);
 
-  // Con sellos: las que faltan van primero, luego la de sello más viejo
-  const taskUpdatedAt = {};
-  for (const t of TASKS) taskUpdatedAt[t.id] = "2026-08-09T10:00:00.000Z";
-  delete taskUpdatedAt.QAT; // nunca ejecutada
-  taskUpdatedAt.OMN = "2026-08-09T08:00:00.000Z"; // la más vieja
-  const ids = stalestTaskIds({ taskUpdatedAt }, 2);
+  // Con sellos: las que faltan van primero, luego la de sello más viejo.
+  // OJO: se ordena por taskAttemptedAt (intentado), no por taskUpdatedAt
+  // (solo éxitos) — es justo lo que evita la inanición de abajo.
+  const taskAttemptedAt = {};
+  for (const t of TASKS) taskAttemptedAt[t.id] = "2026-08-09T10:00:00.000Z";
+  delete taskAttemptedAt.QAT; // nunca intentada
+  taskAttemptedAt.OMN = "2026-08-09T08:00:00.000Z"; // la más vieja
+  const ids = stalestTaskIds({ taskAttemptedAt }, 2);
   assert.deepEqual(ids, ["QAT", "OMN"]);
+});
+
+test("stalestTaskIds/applyTaskResults: una tarea que falla SIEMPRE no bloquea la rotación", () => {
+  // Reproduce el bug real visto en producción: ISRNEWS y LBNNEWS no tenían
+  // éxito nunca (timeout), y como la rotación se basaba solo en éxitos
+  // (taskUpdatedAt), esas 2 tareas se quedaban fijas como "las más viejas"
+  // para siempre y acaparaban las 2 plazas de cada ejecución — el resto del
+  // panel (incluido Irán) dejaba de refrescarse por completo.
+  const FAILING = new Set(["ISRNEWS", "LBNNEWS"]);
+  let payload = null;
+
+  for (let round = 0; round < 4; round++) {
+    const ids = stalestTaskIds(payload, 2);
+    const results = {};
+    const errors = [];
+    const attempted = [];
+    for (const id of ids) {
+      attempted.push(id);
+      if (FAILING.has(id)) {
+        errors.push(`${id}: timeout`);
+      } else {
+        results[id] = [{ date: "2026-08-20T00:00:00.000Z", tone: -1 }];
+      }
+    }
+    payload = applyTaskResults(payload, results, errors, attempted);
+  }
+
+  // Tras 4 rondas (8 plazas) la rotación tuvo que avanzar más allá de las 2
+  // tareas que siempre fallan: no puede haber repetido SOLO esas 2.
+  const seen = new Set(Object.keys(payload.taskAttemptedAt));
+  assert.ok(seen.size > 2, `la rotación se quedó atascada: ${[...seen]}`);
+  // Y las que sí tuvieron éxito deben tener datos guardados.
+  for (const id of seen) {
+    if (!FAILING.has(id)) assert.ok(payload.countries[id] || payload.iranExtended14d.length || payload.articles[id]);
+  }
 });
