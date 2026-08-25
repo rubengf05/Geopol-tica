@@ -52,6 +52,11 @@ export function basePayload(existing, errors = []) {
     iranExtended14d: existing?.iranExtended14d || [],
     iranArticles: existing?.iranArticles || [],
     taskUpdatedAt: { ...(existing?.taskUpdatedAt || {}) },
+    // Sello de "se intentó" (éxito o fallo), separado de taskUpdatedAt (solo
+    // éxitos). Sin esto, una tarea que falla siempre (p.ej. timeout de GDELT)
+    // se queda para siempre como "la más vieja" y acapara las 2 plazas de
+    // cada rotación, dejando sin refrescar a las otras 25 tareas.
+    taskAttemptedAt: { ...(existing?.taskAttemptedAt || {}) },
     lastErrors: [...errors],
   };
   if (!payload.articles.IRN && payload.iranArticles.length) {
@@ -123,7 +128,10 @@ export function mergeSeries(oldSeries, newPoints, maxPoints = MAX_POINTS_KEPT) {
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function stalestTaskIds(existing, n) {
-  const stamps = existing?.taskUpdatedAt || {};
+  // Se ordena por taskAttemptedAt (intentado, éxito o no), NO por
+  // taskUpdatedAt (solo éxitos): así una tarea que falla siempre pasa al
+  // final de la cola tras cada intento en vez de quedarse fija en cabeza.
+  const stamps = existing?.taskAttemptedAt || {};
   return TASKS
     .map((t, i) => ({ id: t.id, i, at: stamps[t.id] || "" }))
     .sort((a, b) => a.at.localeCompare(b.at) || a.i - b.i)
@@ -183,6 +191,11 @@ export async function fetchTaskResults(
 ) {
   const results = {};
   const errors = [];
+  // ids para los que SÍ se hizo una llamada real a GDELT (éxito o fallo).
+  // Se excluyen las "omitida" (cortadas por presupuesto) y las de tarea
+  // desconocida: esas no cuentan como intento y deben seguir siendo las más
+  // prioritarias en la próxima rotación.
+  const attempted = [];
   const started = Date.now();
   let first = true;
   for (const id of taskIds) {
@@ -198,6 +211,7 @@ export async function fetchTaskResults(
       errors.push(`${id}: tarea desconocida`);
       continue;
     }
+    attempted.push(id);
     try {
       results[id] =
         task.kind === "articles"
@@ -207,11 +221,15 @@ export async function fetchTaskResults(
       errors.push(`${id}: ${e.message}`);
     }
   }
-  return { results, errors };
+  return { results, errors, attempted };
 }
 
-export function applyTaskResults(existing, results, errors = []) {
+export function applyTaskResults(existing, results, errors = [], attempted = []) {
   const payload = basePayload(existing, errors);
+  const now = new Date().toISOString();
+  for (const id of attempted) {
+    payload.taskAttemptedAt[id] = now;
+  }
   for (const [id, data] of Object.entries(results || {})) {
     const task = TASKS.find((t) => t.id === id);
     if (!task) continue;
@@ -221,6 +239,6 @@ export function applyTaskResults(existing, results, errors = []) {
 }
 
 export async function updateTasks(existing, taskIds, opts = {}) {
-  const { results, errors } = await fetchTaskResults(taskIds, opts);
-  return applyTaskResults(existing, results, errors);
+  const { results, errors, attempted } = await fetchTaskResults(taskIds, opts);
+  return applyTaskResults(existing, results, errors, attempted);
 }
