@@ -14,7 +14,7 @@
 <style>
   body {
     font-family: 'Lora', Georgia, serif;
-    background: #ffffff; 
+    background: #ffffff;
     color: #111111;
   }
   
@@ -235,6 +235,14 @@
 </main>
 
 <script>
+  // -----------------------------------------------------------------
+  // Este HTML NO llama a GDELT. Solo lee /api/geopolitical-data, que
+  // sirve la función get-geopolitical-data.mjs a partir de lo último
+  // que fetch-gdelt-scheduled.mjs guardó en Netlify Blobs (una vez por
+  // hora). Abrir la página, o cambiar de pestaña de tiempo, no genera
+  // tráfico hacia GDELT — solo lee la caché ya guardada.
+  // -----------------------------------------------------------------
+
   let chartInstance = null;
   let fullHistoricalData = [];
   let currentActiveDays = '30';
@@ -341,8 +349,10 @@
       slicedData = fullHistoricalData;
       periodLabel = "War Total";
     } else {
+      // Los datos guardados tienen resolución diaria, así que "7" y
+      // "30" son directamente número de días a recortar del final.
       const count = parseInt(days);
-      slicedData = fullHistoricalData.slice(-Math.min(fullHistoricalData.length, count * 4)); 
+      slicedData = fullHistoricalData.slice(-Math.min(fullHistoricalData.length, count));
       periodLabel = days === '7' ? "7-Day" : "1 Month";
     }
 
@@ -359,8 +369,6 @@
     const ctx = document.getElementById('iranChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
 
-    const pRadius = days === 'all' ? 0 : (days === '7' ? 3 : 1.5);
-
     chartInstance = new Chart(ctx, {
       type: 'line',
       data: {
@@ -374,7 +382,7 @@
             tension: 0.25,
             fill: false, 
             pointBackgroundColor: '#0f172a',
-            pointRadius: pRadius,
+            pointRadius: 0,
             pointHoverRadius: 4
           },
           {
@@ -434,6 +442,44 @@
     });
   }
 
+  // Plan B: si la caché está vacía (la función programada aún no ha
+  // conseguido datos), llamamos a GDELT directamente desde el
+  // navegador. Esta vía sí funciona aunque la del servidor falle,
+  // porque la petición sale de la IP del visitante y no de Netlify.
+  // No es el camino normal — solo el salvavidas para que el panel no
+  // aparezca vacío.
+  const GDELT_FALLBACK_URL =
+    'https://api.gdeltproject.org/api/v2/doc/doc?query=Iran&mode=timelinetone&timespan=6m&format=json';
+  const FALLBACK_TIMEOUT_MS = 120000;
+
+  function timeoutPromise(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(Object.assign(new Error('timeout'), { name: 'TimeoutError' })), ms);
+    });
+  }
+
+  function parseGdeltDate(raw) {
+    if (!raw) return null;
+    const digits = String(raw).replace(/\D/g, '');
+    if (digits.length < 8) return null;
+    const y = digits.slice(0, 4), mo = digits.slice(4, 6), d = digits.slice(6, 8);
+    const hh = digits.slice(8, 10) || '00', mm = digits.slice(10, 12) || '00', ss = digits.slice(12, 14) || '00';
+    return `${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`;
+  }
+
+  async function fetchDirectFromGdelt() {
+    const resp = await Promise.race([
+      fetch(GDELT_FALLBACK_URL),
+      timeoutPromise(FALLBACK_TIMEOUT_MS)
+    ]);
+    if (!resp.ok) throw new Error(`GDELT HTTP ${resp.status}`);
+    const data = await resp.json();
+    const raw = (data.timeline && data.timeline[0] && data.timeline[0].data) || [];
+    return raw
+      .map(p => ({ date: parseGdeltDate(p.date), tone: Number(p.value) }))
+      .filter(p => p.date !== null && !Number.isNaN(p.tone));
+  }
+
   async function loadData() {
     const dot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
@@ -442,32 +488,63 @@
     statusText.textContent = "Loading…";
 
     try {
-      const res = await fetch('/api/geopolitical-data', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      let usedFallback = false;
+      let data = { series: [], updatedAt: null };
 
-      fullHistoricalData = data.iranExtended14d || data.countries?.IRN || [];
-      
+      try {
+        const res = await fetch('/api/geopolitical-data', { cache: 'no-store' });
+        if (res.ok) data = await res.json();
+      } catch (cacheErr) {
+        console.warn('Caché no disponible:', cacheErr);
+      }
+
+      fullHistoricalData = data.series || [];
+
       if (fullHistoricalData.length === 0) {
-        throw new Error("No historical data available for Iran in cache.");
+        // Caché vacía → tiramos de GDELT directamente.
+        statusText.textContent = "Cache empty · fetching live…";
+        fullHistoricalData = await fetchDirectFromGdelt();
+        usedFallback = true;
+      }
+
+      if (fullHistoricalData.length === 0) {
+        throw new Error("No data available from cache or GDELT.");
       }
 
       updateView(currentActiveDays);
 
-      dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-ok";
-      statusText.textContent = "Live";
+      if (usedFallback) {
+        dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-loading";
+        statusText.textContent = "Live (direct) · cache empty";
+      } else if (data.lastError) {
+        // Hay datos (de un ciclo anterior válido) pero la última
+        // actualización programada falló — lo mostramos sin ocultarlo.
+        dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-loading";
+        statusText.textContent = "Cached (last refresh failed)";
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-ok";
+        if (data.updatedAt) {
+          const upd = new Date(data.updatedAt);
+          statusText.textContent = `Live · updated ${upd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+        } else {
+          statusText.textContent = "Live";
+        }
+      }
     } catch (err) {
       console.error(err);
       dot.className = "w-2 h-2 rounded-full bg-current status-error";
-      statusText.textContent = "Cache Error";
+      statusText.textContent = "Error";
       document.getElementById('derivativeAnalysis').innerHTML = 
-        `<span class="text-red-600">Error reading cached data: ${err.message}. Please click 'Refresh Data'.</span>`;
+        `<span class="text-red-600">No data available. Cache is empty and GDELT could not be reached directly: ${err.message}</span>`;
     }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     loadData();
 
+    // "Refresh Data" vuelve a leer la caché (get-geopolitical-data),
+    // NO dispara una llamada a GDELT — eso solo lo hace la función
+    // programada, una vez por hora.
     document.getElementById('refreshBtn').addEventListener('click', loadData);
 
     const timeBtns = document.querySelectorAll('.time-btn[data-days]');
