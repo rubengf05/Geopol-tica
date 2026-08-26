@@ -14,7 +14,7 @@
 <style>
   body {
     font-family: 'Lora', Georgia, serif;
-    background: #ffffff; 
+    background: #ffffff;
     color: #111111;
   }
   
@@ -105,7 +105,7 @@
         </span>
       </div>
       <div id="derivativeAnalysis" class="leading-relaxed text-[15px]">
-        Loading geopolitical data from cache…
+        Loading geopolitical data from GDELT…
       </div>
     </div>
   </section>
@@ -235,8 +235,26 @@
 </main>
 
 <script>
+  // ---------------------------------------------------------------------
+  // Llamada directa a GDELT desde el navegador (sin backend intermedio).
+  // Cada visitante que abra esta página o cambie de pestaña de tiempo
+  // dispara su propia petición a api.gdeltproject.org. GDELT puede ser
+  // lento o devolver 503 en ratos puntuales; por eso el timeout es
+  // generoso y los errores se explican en vez de fallar en silencio.
+  // ---------------------------------------------------------------------
+  const API_CONFIG = {
+    BASE_URL: 'https://api.gdeltproject.org/api/v2/doc/doc',
+    QUERY: 'Iran',
+    TIMEOUT_MS: 45000
+  };
+
+  const TIMESPAN_MAP = {
+    '7':   { gdelt: '7d', label: '7-Day' },
+    '30':  { gdelt: '1m', label: '1 Month' },
+    'all': { gdelt: '6m', label: 'War Total' }
+  };
+
   let chartInstance = null;
-  let fullHistoricalData = [];
   let currentActiveDays = '30';
 
   function formatDateLabel(isoStr) {
@@ -244,6 +262,14 @@
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  // GDELT devuelve fechas como "YYYYMMDDHHMMSS" — las convertimos a ISO.
+  function parseGdeltDate(raw) {
+    if (!raw || raw.length < 8) return null;
+    const y = raw.slice(0, 4), mo = raw.slice(4, 6), d = raw.slice(6, 8);
+    const hh = raw.slice(8, 10) || '00', mm = raw.slice(10, 12) || '00', ss = raw.slice(12, 14) || '00';
+    return `${y}-${mo}-${d}T${hh}:${mm}:${ss}Z`;
   }
 
   function calculateStats(dataArray) {
@@ -331,27 +357,7 @@
     document.getElementById('derivativeAnalysis').innerHTML = assessmentText;
   }
 
-  function updateView(days) {
-    if (!fullHistoricalData || fullHistoricalData.length === 0) return;
-
-    let slicedData;
-    let periodLabel;
-
-    if (days === 'all') {
-      slicedData = fullHistoricalData;
-      periodLabel = "War Total";
-    } else {
-      const count = parseInt(days);
-      slicedData = fullHistoricalData.slice(-Math.min(fullHistoricalData.length, count * 4)); 
-      periodLabel = days === '7' ? "7-Day" : "1 Month";
-    }
-
-    const labels = slicedData.map(d => formatDateLabel(d.date));
-    const tones = slicedData.map(d => Number(d.tone));
-
-    const { mean, stdDev } = calculateStats(tones);
-    analyzeCurrentSituation(tones, mean, stdDev, periodLabel);
-
+  function renderChart(tones, labels, mean, stdDev, days) {
     const meanLine = tones.map(() => mean);
     const lowerStdDevLine = tones.map(() => mean - stdDev);
     const upperStdDevLine = tones.map(() => mean + stdDev);
@@ -434,49 +440,114 @@
     });
   }
 
-  async function loadData() {
+  function timeoutPromise(ms) {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(Object.assign(new Error('timeout'), { name: 'TimeoutError' })), ms);
+    });
+  }
+
+  function buildUrl(gdeltTimespan) {
+    const params = new URLSearchParams({
+      query: API_CONFIG.QUERY,
+      mode: 'timelinetone',
+      timespan: gdeltTimespan,
+      format: 'json'
+    });
+    return `${API_CONFIG.BASE_URL}?${params.toString()}`;
+  }
+
+  function showError(message) {
     const dot = document.getElementById('statusDot');
     const statusText = document.getElementById('statusText');
-    
+    dot.className = "w-2 h-2 rounded-full bg-current status-error";
+    statusText.textContent = "Error";
+
+    const badge = document.getElementById('statusBadge');
+    badge.innerText = "DATA UNAVAILABLE";
+    badge.className = "font-bold font-sans text-[11px] px-2 py-1 rounded-sm border bg-white tracking-wider text-red-700 border-red-700";
+
+    document.getElementById('derivativeAnalysis').innerHTML =
+      `<span class="text-red-600">No se pudieron obtener datos de GDELT: ${message}</span>`;
+  }
+
+  async function loadData(days) {
+    currentActiveDays = days;
+    const cfg = TIMESPAN_MAP[days];
+    const url = buildUrl(cfg.gdelt);
+
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
     dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-loading";
     statusText.textContent = "Loading…";
+    document.getElementById('derivativeAnalysis').innerHTML = "Loading geopolitical data from GDELT…";
 
     try {
-      const res = await fetch('/api/geopolitical-data', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const resp = await Promise.race([
+        fetch(url),
+        timeoutPromise(API_CONFIG.TIMEOUT_MS)
+      ]);
 
-      fullHistoricalData = data.iranExtended14d || data.countries?.IRN || [];
-      
-      if (fullHistoricalData.length === 0) {
-        throw new Error("No historical data available for Iran in cache.");
+      const rawText = await resp.text();
+
+      if (!resp.ok) {
+        throw new Error(`HTTP ${resp.status} — ${rawText.slice(0, 150) || resp.statusText}`);
       }
 
-      updateView(currentActiveDays);
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseErr) {
+        throw new Error(`respuesta no es JSON válido (${rawText.slice(0, 150)})`);
+      }
+
+      const series = (data.timeline && data.timeline[0] && data.timeline[0].data) || [];
+      if (!series.length) {
+        throw new Error("GDELT respondió correctamente pero sin puntos de datos para este rango.");
+      }
+
+      const points = series
+        .map(p => ({ date: parseGdeltDate(p.date), tone: Number(p.value) }))
+        .filter(p => p.date !== null && !Number.isNaN(p.tone));
+
+      if (!points.length) {
+        throw new Error("Los puntos devueltos no tenían un formato reconocible.");
+      }
+
+      const labels = points.map(p => formatDateLabel(p.date));
+      const tones = points.map(p => p.tone);
+
+      const { mean, stdDev } = calculateStats(tones);
+      analyzeCurrentSituation(tones, mean, stdDev, cfg.label);
+      renderChart(tones, labels, mean, stdDev, days);
 
       dot.className = "w-2 h-2 rounded-full bg-current pulse-dot status-ok";
       statusText.textContent = "Live";
+
     } catch (err) {
       console.error(err);
-      dot.className = "w-2 h-2 rounded-full bg-current status-error";
-      statusText.textContent = "Cache Error";
-      document.getElementById('derivativeAnalysis').innerHTML = 
-        `<span class="text-red-600">Error reading cached data: ${err.message}. Please click 'Refresh Data'.</span>`;
+      let cause;
+      if (err.name === 'TimeoutError') {
+        cause = `timeout — GDELT no respondió en ${API_CONFIG.TIMEOUT_MS / 1000}s. El servicio puede estar caído o saturado.`;
+      } else if (err.message && err.message.includes('Failed to fetch')) {
+        cause = 'fallo de red o bloqueo CORS al llamar a GDELT directamente desde el navegador.';
+      } else {
+        cause = err.message || 'error desconocido';
+      }
+      showError(cause);
     }
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    loadData();
+    loadData(currentActiveDays);
 
-    document.getElementById('refreshBtn').addEventListener('click', loadData);
+    document.getElementById('refreshBtn').addEventListener('click', () => loadData(currentActiveDays));
 
     const timeBtns = document.querySelectorAll('.time-btn[data-days]');
     timeBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         timeBtns.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        currentActiveDays = e.target.getAttribute('data-days');
-        updateView(currentActiveDays);
+        loadData(e.target.getAttribute('data-days'));
       });
     });
   });
